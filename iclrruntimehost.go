@@ -10,17 +10,17 @@ type ICLRRuntimeHost struct {
 }
 
 type ICLRRuntimeHostVtbl struct {
-	QueryInterface uintptr
-	AddRef uintptr
-	Release uintptr
-	Start uintptr
-	Stop uintptr
-	SetHostControl uintptr
-	GetCLRControl uintptr
-	UnloadAppDomain uintptr
-	ExecuteInAppDomain uintptr
-	GetCurrentAppDomainId uintptr
-	ExecuteApplication uintptr
+	QueryInterface            uintptr
+	AddRef                    uintptr
+	Release                   uintptr
+	Start                     uintptr
+	Stop                      uintptr
+	SetHostControl            uintptr
+	GetCLRControl             uintptr
+	UnloadAppDomain           uintptr
+	ExecuteInAppDomain        uintptr
+	GetCurrentAppDomainId     uintptr
+	ExecuteApplication        uintptr
 	ExecuteInDefaultAppDomain uintptr
 }
 

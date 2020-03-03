@@ -1,8 +1,8 @@
 package main
 
 import (
-	"unsafe"
 	"syscall"
+	"unsafe"
 )
 
 type IEnumUnknown struct {
@@ -11,12 +11,12 @@ type IEnumUnknown struct {
 
 type IEnumUnknownVtbl struct {
 	QueryInterface uintptr
-	AddRef uintptr
-	Release uintptr
-	Next uintptr
-	Skip uintptr
-	Reset uintptr
-	Clone uintptr
+	AddRef         uintptr
+	Release        uintptr
+	Next           uintptr
+	Skip           uintptr
+	Reset          uintptr
+	Clone          uintptr
 }
 
 func newIEnumUnknown(ppv uintptr) *IEnumUnknown {

@@ -3,34 +3,32 @@
 package main
 
 import (
-	"fmt"
+	"github.com/Microsoft/go-winio/pkg/guid"
 	"syscall"
 	"unsafe"
 )
 
 var (
 	modMSCoree            = syscall.MustLoadDLL("mscoree.dll")
-	procCLRCreateInstance= modMSCoree.MustFindProc("CLRCreateInstance")
+	procCLRCreateInstance = modMSCoree.MustFindProc("CLRCreateInstance")
 )
 
-
-
-func getICLRMetaHostPtr(ppInterface *uintptr) uintptr {
+func CLRCreateInstance(clsid, riid *guid.GUID, ppInterface *uintptr) uintptr {
 	ret, _, _ := procCLRCreateInstance.Call(
-		uintptr(unsafe.Pointer(&CLSID_CLRMetaHost)),
-		uintptr(unsafe.Pointer(&IID_ICLRMetaHost)),
+		uintptr(unsafe.Pointer(clsid)),
+		uintptr(unsafe.Pointer(riid)),
 		uintptr(unsafe.Pointer(ppInterface)))
 	return ret
 }
 
 // GetICLRMetaHost
-func GetICLRMetaHost() (*ICLRMetaHost, error) {
-	var ppInterface uintptr
-	if hr := getICLRMetaHostPtr(&ppInterface); hr != S_OK {
-		return nil, fmt.Errorf("Could not get pointer to ICLRMetaHost. HRESULT: 0x%x", hr)
-	}
-	return newICLRMetaHost(ppInterface), nil
-}
+//func GetICLRMetaHost() (*ICLRMetaHost, error) {
+//	var ppInterface uintptr
+//	if hr := getICLRMetaHostPtr(&ppInterface); hr != S_OK {
+//		return nil, fmt.Errorf("Could not get pointer to ICLRMetaHost. HRESULT: 0x%x", hr)
+//	}
+//	return newICLRMetaHost(ppInterface), nil
+//}
 
 //ICLRMetaHost Interface from metahost.h
 // https://stackoverflow.com/questions/37781676/how-to-use-com-component-object-model-in-golang
@@ -85,7 +83,7 @@ func (obj *ICLRMetaHost) EnumerateInstalledRuntimes(pInstalledRuntimes *uintptr)
 	return ret
 }
 
-func (obj *ICLRMetaHost) GetRuntime(version string, pRuntimeHost uintptr) uintptr {
+func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16, riid *guid.GUID, pRuntimeHost *uintptr) uintptr {
 	v4Ptr, err := syscall.UTF16PtrFromString("v4.0.30319")
 	if err != nil {
 		panic(err)
@@ -96,7 +94,7 @@ func (obj *ICLRMetaHost) GetRuntime(version string, pRuntimeHost uintptr) uintpt
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(v4Ptr)),
 		uintptr(unsafe.Pointer(&IID_ICLRRuntimeInfo)),
-		uintptr(unsafe.Pointer(&pRuntimeHost)),
+		uintptr(unsafe.Pointer(pRuntimeHost)),
 		0,
 		0)
 	return ret

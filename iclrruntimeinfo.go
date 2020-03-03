@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/Microsoft/go-winio/pkg/guid"
-	"unsafe"
 	"syscall"
+	"unsafe"
 )
 
 type ICLRRuntimeInfo struct {
@@ -11,21 +11,21 @@ type ICLRRuntimeInfo struct {
 }
 
 type ICLRRuntimeInfoVtbl struct {
-	QueryInterface uintptr
-	AddRef uintptr
-	Release uintptr
-	GetVersionString uintptr
-	GetRuntimeDirectory uintptr
-	IsLoaded uintptr
-	LoadErrorString uintptr
-	LoadLibrary uintptr
-	GetProcAddress uintptr
-	GetInterface uintptr
-	IsLoadable uintptr
+	QueryInterface         uintptr
+	AddRef                 uintptr
+	Release                uintptr
+	GetVersionString       uintptr
+	GetRuntimeDirectory    uintptr
+	IsLoaded               uintptr
+	LoadErrorString        uintptr
+	LoadLibrary            uintptr
+	GetProcAddress         uintptr
+	GetInterface           uintptr
+	IsLoadable             uintptr
 	SetDefaultStartupFlags uintptr
 	GetDefaultStartupFlags uintptr
-	BindAsLegacyV2Runtime uintptr
-	IsStarted uintptr
+	BindAsLegacyV2Runtime  uintptr
+	IsStarted              uintptr
 }
 
 func newICLRRuntimeInfo(ppv uintptr) *ICLRRuntimeInfo {
@@ -82,7 +82,7 @@ func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() uintptr {
 		uintptr(unsafe.Pointer(obj)),
 		0,
 		0,
-		)
+	)
 	return ret
 }
 
