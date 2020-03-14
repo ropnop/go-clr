@@ -1,9 +1,12 @@
-package main
+// +build windows
+
+package clr
 
 import (
-	"github.com/Microsoft/go-winio/pkg/guid"
 	"syscall"
 	"unsafe"
+
+	"github.com/Microsoft/go-winio/pkg/guid"
 )
 
 // from mscorlib.tlh
@@ -16,6 +19,10 @@ type AssemblyVtbl struct {
 	QueryInterface              uintptr
 	AddRef                      uintptr
 	Release                     uintptr
+	GetTypeInfoCount            uintptr
+	GetTypeInfo                 uintptr
+	GetIDsOfNames               uintptr
+	Invoke                      uintptr
 	get_ToString                uintptr
 	Equals                      uintptr
 	GetHashCode                 uintptr
@@ -62,7 +69,7 @@ type AssemblyVtbl struct {
 	get_GlobalAssemblyCache     uintptr
 }
 
-func newAssembly(ppv uintptr) *Assembly {
+func NewAssembly(ppv uintptr) *Assembly {
 	return (*Assembly)(unsafe.Pointer(ppv))
 }
 

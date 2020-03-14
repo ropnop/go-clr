@@ -1,9 +1,12 @@
-package main
+// +build windows
+
+package clr
 
 import (
-	"github.com/Microsoft/go-winio/pkg/guid"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 type IUnknown struct {
@@ -16,11 +19,11 @@ type IUnknownVtbl struct {
 	Release        uintptr
 }
 
-func newIUnknown(ppv uintptr) *IUnknown {
+func NewIUnknown(ppv uintptr) *IUnknown {
 	return (*IUnknown)(unsafe.Pointer(ppv))
 }
 
-func (obj *IUnknown) QueryInterface(riid *guid.GUID, ppvObject *uintptr) uintptr {
+func (obj *IUnknown) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,

@@ -1,4 +1,6 @@
-package main
+// +build windows
+
+package clr
 
 import "unsafe"
 
@@ -9,10 +11,10 @@ type Variant struct {
 	wReserved1 uint16
 	wReserved2 uint16
 	wReserved3 uint16
-	Val        int64
+	Val        uintptr
 	_          [8]byte
 }
 
-func newVariant(ppv uintptr) *Variant {
+func variantFromPtr(ppv uintptr) *Variant {
 	return (*Variant)(unsafe.Pointer(ppv))
 }

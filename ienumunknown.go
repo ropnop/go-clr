@@ -1,4 +1,6 @@
-package main
+// +build windows
+
+package clr
 
 import (
 	"syscall"
@@ -19,7 +21,7 @@ type IEnumUnknownVtbl struct {
 	Clone          uintptr
 }
 
-func newIEnumUnknown(ppv uintptr) *IEnumUnknown {
+func NewIEnumUnknown(ppv uintptr) *IEnumUnknown {
 	return (*IEnumUnknown)(unsafe.Pointer(ppv))
 }
 

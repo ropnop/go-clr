@@ -1,7 +1,9 @@
-package main
+// +build windows
+
+package clr
 
 import (
-	"github.com/Microsoft/go-winio/pkg/guid"
+	"golang.org/x/sys/windows"
 	"syscall"
 	"unsafe"
 )
@@ -28,7 +30,7 @@ type ICLRRuntimeInfoVtbl struct {
 	IsStarted              uintptr
 }
 
-func newICLRRuntimeInfo(ppv uintptr) *ICLRRuntimeInfo {
+func NewICLRRuntimeInfo(ppv uintptr) *ICLRRuntimeInfo {
 	return (*ICLRRuntimeInfo)(unsafe.Pointer(ppv))
 }
 
@@ -62,7 +64,7 @@ func (obj *ICLRRuntimeInfo) GetVersionString(pcchBuffer *uint16, pVersionstringS
 	return ret
 }
 
-func (obj *ICLRRuntimeInfo) GetInterface(rclsid *guid.GUID, riid *guid.GUID, ppUnk *uintptr) uintptr {
+func (obj *ICLRRuntimeInfo) GetInterface(rclsid *windows.GUID, riid *windows.GUID, ppUnk *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall6(
 		obj.vtbl.GetInterface,
 		4,

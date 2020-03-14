@@ -1,4 +1,6 @@
-package main
+// +build windows
+
+package clr
 
 import (
 	"syscall"
@@ -24,7 +26,7 @@ type ICLRRuntimeHostVtbl struct {
 	ExecuteInDefaultAppDomain uintptr
 }
 
-func newICLRRuntimeHost(ppv uintptr) *ICLRRuntimeHost {
+func NewICLRRuntimeHost(ppv uintptr) *ICLRRuntimeHost {
 	return (*ICLRRuntimeHost)(unsafe.Pointer(ppv))
 }
 
@@ -74,7 +76,7 @@ func (obj *ICLRRuntimeHost) ExecuteInDefaultAppDomain(pwzAssemblyPath, pwzTypeNa
 	return ret
 }
 
-func (obj *ICLRRuntimeHost) GetCurrentappDomainID(pdwAppDomainId *uint16) uintptr {
+func (obj *ICLRRuntimeHost) GetCurrentAppDomainID(pdwAppDomainId *uint16) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.GetCurrentAppDomainId,
 		2,

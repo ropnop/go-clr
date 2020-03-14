@@ -1,9 +1,12 @@
-package main
+// +build windows
+
+package clr
 
 import (
-	"github.com/Microsoft/go-winio/pkg/guid"
 	"syscall"
 	"unsafe"
+
+	"github.com/Microsoft/go-winio/pkg/guid"
 )
 
 type AppDomain struct {
@@ -83,7 +86,7 @@ type AppDomainVtbl struct {
 	get_DynamicDirectory      uintptr
 }
 
-func newAppDomain(ppv uintptr) *AppDomain {
+func NewAppDomain(ppv uintptr) *AppDomain {
 	return (*AppDomain)(unsafe.Pointer(ppv))
 }
 

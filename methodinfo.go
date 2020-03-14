@@ -1,9 +1,12 @@
-package main
+// +build windows
+
+package clr
 
 import (
-	"github.com/Microsoft/go-winio/pkg/guid"
 	"syscall"
 	"unsafe"
+
+	"github.com/Microsoft/go-winio/pkg/guid"
 )
 
 // from mscorlib.tlh
@@ -56,7 +59,7 @@ type MethodInfoVtbl struct {
 	GetBaseDefinition              uintptr
 }
 
-func newMethodInfo(ppv uintptr) *MethodInfo {
+func NewMethodInfo(ppv uintptr) *MethodInfo {
 	return (*MethodInfo)(unsafe.Pointer(ppv))
 }
 
@@ -100,16 +103,16 @@ func (obj *MethodInfo) GetType(pRetVal *uintptr) uintptr {
 	return ret
 }
 
-func (obj *MethodInfo) Invoke_3(variantObj, parameters uintptr, pRetVal *uintptr) uintptr {
+func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters uintptr, pRetVal *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall6(
 		obj.vtbl.Invoke_3,
 		4,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(variantObj)),
+		uintptr(unsafe.Pointer(&variantObj)),
 		0,
 		uintptr(unsafe.Pointer(pRetVal)),
 		0,
 		0,
-		)
+	)
 	return ret
 }

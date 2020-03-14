@@ -1,4 +1,6 @@
-package main
+// +build windows
+
+package clr
 
 import (
 	"syscall"
@@ -34,7 +36,7 @@ type ICORRuntimeHostVtbl struct {
 	CurrentDomain                 uintptr
 }
 
-func newICORRuntimeHost(ppv uintptr) *ICORRuntimeHost {
+func NewICORRuntimeHost(ppv uintptr) *ICORRuntimeHost {
 	return (*ICORRuntimeHost)(unsafe.Pointer(ppv))
 }
 

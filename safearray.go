@@ -1,7 +1,10 @@
-package main
+// +build windows
+
+package clr
 
 import (
 	"fmt"
+	"runtime"
 	"syscall"
 	"unsafe"
 )
@@ -14,8 +17,6 @@ import (
 // USHORT uint16
 
 // from OAld.h
-
-
 
 type SafeArray struct {
 	cDims      uint16
@@ -31,7 +32,7 @@ type SafeArrayBound struct {
 	lLbound   int32
 }
 
-func createSafeArray(rawBytes []byte) (SafeArray, error) {
+func CreateSafeArray(rawBytes []byte) (SafeArray, error) {
 	modOleAuto, err := syscall.LoadDLL("OleAut32.dll")
 	if err != nil {
 		return SafeArray{}, err
@@ -57,6 +58,7 @@ func createSafeArray(rawBytes []byte) (SafeArray, error) {
 	}
 
 	sa := (*SafeArray)(unsafe.Pointer(ret))
+	runtime.KeepAlive(sa)
 	// now we need to use RtlCopyMemory to copy our bytes to the SafeArray
 	modNtDll, err := syscall.LoadDLL("ntdll.dll")
 	if err != nil {
@@ -75,9 +77,6 @@ func createSafeArray(rawBytes []byte) (SafeArray, error) {
 		return SafeArray{}, err
 	}
 
-	//printRawData(uintptr(unsafe.Pointer(&sa)), uintptr(32))
-
 	return *sa, nil
-	//return uintptr(unsafe.Pointer(&sa)), nil
 
 }
