@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"runtime"
 	"syscall"
 	"unsafe"
@@ -25,7 +26,19 @@ func checkOK(hr uintptr, caller string) {
 	}
 }
 
+func init() {
+	if len(os.Args) != 2 {
+		fmt.Println("Usage: EXEfromMemory.exe <exe_file>")
+		os.Exit(1)
+	}
+}
+
 func main() {
+	filename := os.Args[1]
+	exebytes, err := ioutil.ReadFile(filename)
+	must(err)
+	runtime.KeepAlive(&exebytes)
+
 	metaHost, err := clr.GetMetaHost()
 	must(err)
 	versionString := "v4.0.30319"
@@ -62,13 +75,9 @@ func main() {
 	appDomain := clr.NewAppDomain(pAppDomain)
 	fmt.Println("[+] Got default AppDomain")
 
-	testEXEBytes, err := ioutil.ReadFile("./TestEXE.exe")
-	must(err)
-	runtime.KeepAlive(testEXEBytes)
+	fmt.Printf("[+] Loaded %d bytes into memory from %s\n", len(exebytes), filename)
 
-	fmt.Printf("[+] Loaded %d bytes into memory from TestExe.exe\n", len(testEXEBytes))
-
-	safeArray, err := clr.CreateSafeArray(testEXEBytes)
+	safeArray, err := clr.CreateSafeArray(exebytes)
 	must(err)
 	runtime.KeepAlive(safeArray)
 	fmt.Println("[+] Crated SafeArray from byte array")
