@@ -34,7 +34,9 @@ func GetICLRMetaHost() (metahost *ICLRMetaHost, err error) {
 }
 
 //ICLRMetaHost Interface from metahost.h
+// Couldnt have done any of this without this SO answer I stumbled on:
 // https://stackoverflow.com/questions/37781676/how-to-use-com-component-object-model-in-golang
+
 type ICLRMetaHost struct {
 	vtbl *ICLRMetaHostVtbl
 }

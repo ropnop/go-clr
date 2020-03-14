@@ -47,6 +47,7 @@ func CreateSafeArray(rawBytes []byte) (SafeArray, error) {
 		cElements: uint32(size),
 		lLbound:   0,
 	}
+	runtime.KeepAlive(sab)
 	vt := uint16(0x11) // VT_UI1
 	ret, _, _ := procSafeArrayCreate.Call(
 		uintptr(vt),

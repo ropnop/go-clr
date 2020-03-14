@@ -4,21 +4,10 @@ package clr
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"syscall"
-)
-
-var (
-	Metahost        *ICLRMetaHost
-	RuntimeInfo     *ICLRRuntimeInfo
-	IsLoadable      bool
-	LegacyV2Runtime bool
-	CorRuntimeHost  *ICORRuntimeHost
-	ClrRuntimeHost  *ICLRRuntimeHost
-	Iu              *IUnknown
-	LoadedAppDomain *AppDomain
-	LoadedAssembly  *Assembly
-	EntryPoint      *MethodInfo
+	"unsafe"
 )
 
 func GetMetaHost() (*ICLRMetaHost, error) {
@@ -81,23 +70,38 @@ func GetRuntimeInfo(metahost *ICLRMetaHost, version string) (*ICLRRuntimeInfo, e
 
 func GetICLRRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICLRRuntimeHost, error) {
 	var pRuntimeHost uintptr
-	hr := runtimeInfo.GetInterface(&CLSID_CorRuntimeHost, &IID_ICLRRuntimeHost, &pRuntimeHost)
+	hr := runtimeInfo.GetInterface(&CLSID_CLRRuntimeHost, &IID_ICLRRuntimeHost, &pRuntimeHost)
 	err := checkOK(hr, "runtimeInfo.GetInterface")
 	if err != nil {
 		return nil, err
 	}
-	return NewICLRRuntimeHost(pRuntimeHost), nil
+	runtimeHost := NewICLRRuntimeHost(pRuntimeHost)
+	hr = runtimeHost.Start()
+	err = checkOK(hr, "runtimeHost.Start")
+	return runtimeHost, err
+}
+
+func GetICORRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICORRuntimeHost, error) {
+	var pRuntimeHost uintptr
+	hr := runtimeInfo.GetInterface(&CLSID_CorRuntimeHost, &IID_ICorRuntimeHost, &pRuntimeHost)
+	err := checkOK(hr, "runtimeInfo.GetInterface")
+	if err != nil {
+		return nil, err
+	}
+	runtimeHost := NewICORRuntimeHost(pRuntimeHost)
+	hr = runtimeHost.Start()
+	err = checkOK(hr, "runtimeHost.Start")
+	return runtimeHost, err
 }
 
 // ExecuteDLL is a wrapper function that will automatically load the latest installed CLR into the current process
 // and execute a DLL on disk in the default app domain
-func ExecuteDLL(dllpath, typeName, methodName, argument string) (retCode int, err error) {
+func ExecuteDLL(dllpath, typeName, methodName, argument string) (retCode int16, err error) {
 	retCode = -1
 	metahost, err := GetMetaHost()
 	if err != nil {
 		return
 	}
-	defer metahost.Release()
 
 	runtimes, err := GetInstalledRuntimes(metahost)
 	if err != nil {
@@ -116,7 +120,6 @@ func ExecuteDLL(dllpath, typeName, methodName, argument string) (retCode int, er
 	if err != nil {
 		return
 	}
-	defer runtimeInfo.Release()
 	var isLoadable bool
 	hr := runtimeInfo.IsLoadable(&isLoadable)
 	err = checkOK(hr, "runtimeInfo.IsLoadable")
@@ -130,23 +133,101 @@ func ExecuteDLL(dllpath, typeName, methodName, argument string) (retCode int, er
 	if err != nil {
 		return
 	}
-	defer runtimeHost.Release()
-	hr = runtimeHost.Start()
-	err = checkOK(hr, "runtimeHost.Start")
-	if err != nil {
-		return
-	}
 
 	pDLLPath, _ := syscall.UTF16PtrFromString(dllpath)
 	pTypeName, _ := syscall.UTF16PtrFromString(typeName)
 	pMethodName, _ := syscall.UTF16PtrFromString(methodName)
 	pArgument, _ := syscall.UTF16PtrFromString(argument)
-	var pReturnVal *uint16
-	hr = runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument, pReturnVal)
+	var pReturnVal uint16
+	hr = runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument, &pReturnVal)
 	err = checkOK(hr, "runtimeHost.ExecuteInDefaultAppDomain")
 	if err != nil {
-		return int(*pReturnVal), err
+		return int16(pReturnVal), err
 	}
-	return int(*pReturnVal), nil
+	runtimeHost.Release()
+	runtimeInfo.Release()
+	metahost.Release()
+	return int16(pReturnVal), nil
+
+}
+
+func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
+	retCode = -1
+	metahost, err := GetMetaHost()
+	if err != nil {
+		return
+	}
+
+	runtimes, err := GetInstalledRuntimes(metahost)
+	if err != nil {
+		return
+	}
+	var latestRuntime string
+	for _, r := range runtimes {
+		if strings.Contains(r, "v4") {
+			latestRuntime = r
+			break
+		} else {
+			latestRuntime = r
+		}
+	}
+	runtimeInfo, err := GetRuntimeInfo(metahost, latestRuntime)
+	if err != nil {
+		return
+	}
+	var isLoadable bool
+	hr := runtimeInfo.IsLoadable(&isLoadable)
+	err = checkOK(hr, "runtimeInfo.IsLoadable")
+	if err != nil {
+		return
+	}
+	if !isLoadable {
+		return -1, fmt.Errorf("%s is not loadable for some reason", latestRuntime)
+	}
+	runtimeHost, err := GetICORRuntimeHost(runtimeInfo)
+	if err != nil {
+		return
+	}
+	appDomain, err := GetAppDomain(runtimeHost)
+	if err != nil {
+		return
+	}
+	safeArray, err := CreateSafeArray(rawBytes)
+	if err != nil {
+		return
+	}
+	runtime.KeepAlive(&safeArray)
+	var pAssembly uintptr
+	hr = appDomain.Load_3(uintptr(unsafe.Pointer(&safeArray)), &pAssembly)
+	err = checkOK(hr, "appDomain.Load_3")
+	if err != nil {
+		return
+	}
+	assembly := NewAssembly(pAssembly)
+	var pEntryPointInfo uintptr
+	hr = assembly.GetEntryPoint(&pEntryPointInfo)
+	err = checkOK(hr, "assembly.GetEntryPoint")
+	if err != nil {
+		return
+	}
+	methodInfo := NewMethodInfo(pEntryPointInfo)
+	var pRetCode uintptr
+	nullVariant := Variant{
+		VT:  1,
+		Val: uintptr(0),
+	}
+	hr = methodInfo.Invoke_3(
+		nullVariant,
+		uintptr(0),
+		&pRetCode)
+	err = checkOK(hr, "methodInfo.Invoke_3")
+	if err != nil {
+		return
+	}
+	appDomain.Release()
+	runtimeHost.Release()
+	runtimeInfo.Release()
+	metahost.Release()
+	return int32(pRetCode), nil
 
 }

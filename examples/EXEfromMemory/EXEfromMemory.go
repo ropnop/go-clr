@@ -37,14 +37,17 @@ func main() {
 	filename := os.Args[1]
 	exebytes, err := ioutil.ReadFile(filename)
 	must(err)
-	runtime.KeepAlive(&exebytes)
+	runtime.KeepAlive(exebytes)
 
-	metaHost, err := clr.GetMetaHost()
-	must(err)
+	var pMetaHost uintptr
+	hr := clr.CLRCreateInstance(&clr.CLSID_CLRMetaHost, &clr.IID_ICLRMetaHost, &pMetaHost)
+	checkOK(hr, "CLRCreateInstance")
+	metaHost := clr.NewICLRMetaHost(pMetaHost)
+
 	versionString := "v4.0.30319"
 	pwzVersion, _ := syscall.UTF16PtrFromString(versionString)
 	var pRuntimeInfo uintptr
-	hr := metaHost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
+	hr = metaHost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
 	checkOK(hr, "metahost.GetRuntime")
 	runtimeInfo := clr.NewICLRRuntimeInfo(pRuntimeInfo)
 
