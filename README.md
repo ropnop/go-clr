@@ -9,7 +9,7 @@ load structs from memory.
 For more info and references, see [this blog post](todo).
 
 This was was a fun project and proof of concept, but the code is definitely not "production ready". It makes heavy use 
-of `unsafe` and I've even noticed in my testing it's wildly unstable. I don't plan on supporting it much moving forward,
+of `unsafe` and it's probably very unstable. I don't plan on supporting it much moving forward,
 but I wanted to share the code and knowledge to enable others to either contribute, or fork and make their own awesome tools.
 
 ## Installation and Usage
