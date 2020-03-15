@@ -42,14 +42,14 @@ func main() {
 	var pMetaHost uintptr
 	hr := clr.CLRCreateInstance(&clr.CLSID_CLRMetaHost, &clr.IID_ICLRMetaHost, &pMetaHost)
 	checkOK(hr, "CLRCreateInstance")
-	metaHost := clr.NewICLRMetaHost(pMetaHost)
+	metaHost := clr.NewICLRMetaHostFromPtr(pMetaHost)
 
 	versionString := "v4.0.30319"
 	pwzVersion, _ := syscall.UTF16PtrFromString(versionString)
 	var pRuntimeInfo uintptr
 	hr = metaHost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
 	checkOK(hr, "metahost.GetRuntime")
-	runtimeInfo := clr.NewICLRRuntimeInfo(pRuntimeInfo)
+	runtimeInfo := clr.NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
 
 	var isLoadable bool
 	hr = runtimeInfo.IsLoadable(&isLoadable)
@@ -63,7 +63,7 @@ func main() {
 
 	var pRuntimeHost uintptr
 	hr = runtimeInfo.GetInterface(&clr.CLSID_CorRuntimeHost, &clr.IID_ICorRuntimeHost, &pRuntimeHost)
-	runtimeHost := clr.NewICORRuntimeHost(pRuntimeHost)
+	runtimeHost := clr.NewICORRuntimeHostFromPtr(pRuntimeHost)
 	hr = runtimeHost.Start()
 	checkOK(hr, "runtimeHost.Start")
 	fmt.Println("[+] Loaded CLR into this process")
@@ -72,10 +72,10 @@ func main() {
 	var pIUnknown uintptr
 	hr = runtimeHost.GetDefaultDomain(&pIUnknown)
 	checkOK(hr, "runtimeHost.GetDefaultDomain")
-	iu := clr.NewIUnknown(pIUnknown)
+	iu := clr.NewIUnknownFromPtr(pIUnknown)
 	hr = iu.QueryInterface(&clr.IID_AppDomain, &pAppDomain)
 	checkOK(hr, "iu.QueryInterface")
-	appDomain := clr.NewAppDomain(pAppDomain)
+	appDomain := clr.NewAppDomainFromPtr(pAppDomain)
 	fmt.Println("[+] Got default AppDomain")
 
 	fmt.Printf("[+] Loaded %d bytes into memory from %s\n", len(exebytes), filename)
@@ -88,7 +88,7 @@ func main() {
 	var pAssembly uintptr
 	hr = appDomain.Load_3(uintptr(unsafe.Pointer(&safeArray)), &pAssembly)
 	checkOK(hr, "appDomain.Load_3")
-	assembly := clr.NewAssembly(pAssembly)
+	assembly := clr.NewAssemblyFromPtr(pAssembly)
 	fmt.Printf("[+] Executable loaded into memory at 0x%08x\n", pAssembly)
 
 	var pEntryPointInfo uintptr
@@ -96,7 +96,7 @@ func main() {
 	checkOK(hr, "assembly.GetEntryPoint")
 	fmt.Printf("[+] Executable entrypoint found at 0x%08x. Calling...\n", pEntryPointInfo)
 	fmt.Println("-------")
-	methodInfo := clr.NewMethodInfo(pEntryPointInfo)
+	methodInfo := clr.NewMethodInfoFromPtr(pEntryPointInfo)
 
 	var pRetCode uintptr
 	nullVariant := clr.Variant{

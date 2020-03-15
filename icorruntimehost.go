@@ -36,7 +36,23 @@ type ICORRuntimeHostVtbl struct {
 	CurrentDomain                 uintptr
 }
 
-func NewICORRuntimeHost(ppv uintptr) *ICORRuntimeHost {
+// GetICORRuntimeHost is a wrapper function that takes in an ICLRRuntimeInfo and returns an ICORRuntimeHost object
+// and loads it into the current process. This is the "deprecated" API, but the only way currently to load an assembly
+// from memory (afaict)
+func GetICORRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICORRuntimeHost, error) {
+	var pRuntimeHost uintptr
+	hr := runtimeInfo.GetInterface(&CLSID_CorRuntimeHost, &IID_ICorRuntimeHost, &pRuntimeHost)
+	err := checkOK(hr, "runtimeInfo.GetInterface")
+	if err != nil {
+		return nil, err
+	}
+	runtimeHost := NewICORRuntimeHostFromPtr(pRuntimeHost)
+	hr = runtimeHost.Start()
+	err = checkOK(hr, "runtimeHost.Start")
+	return runtimeHost, err
+}
+
+func NewICORRuntimeHostFromPtr(ppv uintptr) *ICORRuntimeHost {
 	return (*ICORRuntimeHost)(unsafe.Pointer(ppv))
 }
 

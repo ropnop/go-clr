@@ -36,7 +36,7 @@ func main() {
 
 	hr := metahost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
 	checkOK(hr, "metaHost.GetRuntime")
-	runtimeInfo := clr.NewICLRRuntimeInfo(pRuntimeInfo)
+	runtimeInfo := clr.NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
 	fmt.Printf("[+] Using runtime: %s\n", versionString)
 
 	var isLoadable bool
@@ -49,7 +49,7 @@ func main() {
 	var pRuntimeHost uintptr
 	hr = runtimeInfo.GetInterface(&clr.CLSID_CLRRuntimeHost, &clr.IID_ICLRRuntimeHost, &pRuntimeHost)
 	checkOK(hr, "runtimeInfo.GetInterface")
-	runtimeHost := clr.NewICLRRuntimeHost(pRuntimeHost)
+	runtimeHost := clr.NewICLRRuntimeHostFromPtr(pRuntimeHost)
 
 	hr = runtimeHost.Start()
 	checkOK(hr, "runtimeHost.Start")

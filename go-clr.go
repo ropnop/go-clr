@@ -10,16 +10,7 @@ import (
 	"unsafe"
 )
 
-func GetMetaHost() (*ICLRMetaHost, error) {
-	var pMetaHost uintptr
-	hr := CLRCreateInstance(&CLSID_CLRMetaHost, &IID_ICLRMetaHost, &pMetaHost)
-	err := checkOK(hr, "CLRCreateInstance")
-	if err != nil {
-		return nil, err
-	}
-	return NewICLRMetaHost(pMetaHost), nil
-}
-
+// GetInstallRuntimes is a wrapper function that returns an array of installed runtimes. Requires an existing ICLRMetaHost
 func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	var runtimes []string
 	var pInstalledRuntimes uintptr
@@ -28,7 +19,7 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	if err != nil {
 		return runtimes, err
 	}
-	installedRuntimes := NewIEnumUnknown(pInstalledRuntimes)
+	installedRuntimes := NewIEnumUnknownFromPtr(pInstalledRuntimes)
 	var pRuntimeInfo uintptr
 	var fetched = uint32(0)
 	var versionString string
@@ -40,7 +31,7 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 		if hr != S_OK {
 			break
 		}
-		runtimeInfo = NewICLRRuntimeInfo(pRuntimeInfo)
+		runtimeInfo = NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
 		if ret := runtimeInfo.GetVersionString(&versionStringBytes[0], &versionStringSize); ret != S_OK {
 			return runtimes, fmt.Errorf("GetVersionString returned 0x%08x", ret)
 		}
@@ -54,51 +45,12 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	return runtimes, err
 }
 
-func GetRuntimeInfo(metahost *ICLRMetaHost, version string) (*ICLRRuntimeInfo, error) {
-	pwzVersion, err := syscall.UTF16PtrFromString(version)
-	if err != nil {
-		return nil, err
-	}
-	var pRuntimeInfo uintptr
-	hr := metahost.GetRuntime(pwzVersion, &IID_ICLRRuntimeInfo, &pRuntimeInfo)
-	err = checkOK(hr, "metahost.GetRuntime")
-	if err != nil {
-		return nil, err
-	}
-	return NewICLRRuntimeInfo(pRuntimeInfo), nil
-}
-
-func GetICLRRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICLRRuntimeHost, error) {
-	var pRuntimeHost uintptr
-	hr := runtimeInfo.GetInterface(&CLSID_CLRRuntimeHost, &IID_ICLRRuntimeHost, &pRuntimeHost)
-	err := checkOK(hr, "runtimeInfo.GetInterface")
-	if err != nil {
-		return nil, err
-	}
-	runtimeHost := NewICLRRuntimeHost(pRuntimeHost)
-	hr = runtimeHost.Start()
-	err = checkOK(hr, "runtimeHost.Start")
-	return runtimeHost, err
-}
-
-func GetICORRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICORRuntimeHost, error) {
-	var pRuntimeHost uintptr
-	hr := runtimeInfo.GetInterface(&CLSID_CorRuntimeHost, &IID_ICorRuntimeHost, &pRuntimeHost)
-	err := checkOK(hr, "runtimeInfo.GetInterface")
-	if err != nil {
-		return nil, err
-	}
-	runtimeHost := NewICORRuntimeHost(pRuntimeHost)
-	hr = runtimeHost.Start()
-	err = checkOK(hr, "runtimeHost.Start")
-	return runtimeHost, err
-}
-
 // ExecuteDLL is a wrapper function that will automatically load the latest installed CLR into the current process
-// and execute a DLL on disk in the default app domain
+// and execute a DLL on disk in the default app domain. It takes in the DLLPath, TypeName, MethodName and Argument to use
+// as strings. It returns the return code from the assembly
 func ExecuteDLL(dllpath, typeName, methodName, argument string) (retCode int16, err error) {
 	retCode = -1
-	metahost, err := GetMetaHost()
+	metahost, err := GetICLRMetaHost()
 	if err != nil {
 		return
 	}
@@ -151,9 +103,12 @@ func ExecuteDLL(dllpath, typeName, methodName, argument string) (retCode int16, 
 
 }
 
+// ExecuteByteArray is a wrapper function that will automatically load the latest supported framework into the current
+// process using the legacy APIs, then load and execute an executable from memory. It takes in a byte array of the
+// executable to load and run and returns the return code. It currently does not support any arguments on the entry point
 func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	retCode = -1
-	metahost, err := GetMetaHost()
+	metahost, err := GetICLRMetaHost()
 	if err != nil {
 		return
 	}
@@ -203,14 +158,14 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	if err != nil {
 		return
 	}
-	assembly := NewAssembly(pAssembly)
+	assembly := NewAssemblyFromPtr(pAssembly)
 	var pEntryPointInfo uintptr
 	hr = assembly.GetEntryPoint(&pEntryPointInfo)
 	err = checkOK(hr, "assembly.GetEntryPoint")
 	if err != nil {
 		return
 	}
-	methodInfo := NewMethodInfo(pEntryPointInfo)
+	methodInfo := NewMethodInfoFromPtr(pEntryPointInfo)
 	var pRetCode uintptr
 	nullVariant := Variant{
 		VT:  1,

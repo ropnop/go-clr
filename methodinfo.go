@@ -59,7 +59,7 @@ type MethodInfoVtbl struct {
 	GetBaseDefinition              uintptr
 }
 
-func NewMethodInfo(ppv uintptr) *MethodInfo {
+func NewMethodInfoFromPtr(ppv uintptr) *MethodInfo {
 	return (*MethodInfo)(unsafe.Pointer(ppv))
 }
 

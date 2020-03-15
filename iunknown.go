@@ -19,7 +19,7 @@ type IUnknownVtbl struct {
 	Release        uintptr
 }
 
-func NewIUnknown(ppv uintptr) *IUnknown {
+func NewIUnknownFromPtr(ppv uintptr) *IUnknown {
 	return (*IUnknown)(unsafe.Pointer(ppv))
 }
 

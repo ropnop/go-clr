@@ -4,7 +4,7 @@ package clr
 
 import "unsafe"
 
-//from https://github.com/go-ole/go-ole/blob/master/variant_amd64.go
+// from https://github.com/go-ole/go-ole/blob/master/variant_amd64.go
 
 type Variant struct {
 	VT         uint16 // VARTYPE
@@ -15,6 +15,6 @@ type Variant struct {
 	_          [8]byte
 }
 
-func variantFromPtr(ppv uintptr) *Variant {
+func NewVariantFromPtr(ppv uintptr) *Variant {
 	return (*Variant)(unsafe.Pointer(ppv))
 }

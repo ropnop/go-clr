@@ -30,7 +30,22 @@ type ICLRRuntimeInfoVtbl struct {
 	IsStarted              uintptr
 }
 
-func NewICLRRuntimeInfo(ppv uintptr) *ICLRRuntimeInfo {
+// GetRuntimeInfo is a wrapper function to return an ICLRRuntimeInfo from a standard version string
+func GetRuntimeInfo(metahost *ICLRMetaHost, version string) (*ICLRRuntimeInfo, error) {
+	pwzVersion, err := syscall.UTF16PtrFromString(version)
+	if err != nil {
+		return nil, err
+	}
+	var pRuntimeInfo uintptr
+	hr := metahost.GetRuntime(pwzVersion, &IID_ICLRRuntimeInfo, &pRuntimeInfo)
+	err = checkOK(hr, "metahost.GetRuntime")
+	if err != nil {
+		return nil, err
+	}
+	return NewICLRRuntimeInfoFromPtr(pRuntimeInfo), nil
+}
+
+func NewICLRRuntimeInfoFromPtr(ppv uintptr) *ICLRRuntimeInfo {
 	return (*ICLRRuntimeInfo)(unsafe.Pointer(ppv))
 }
 

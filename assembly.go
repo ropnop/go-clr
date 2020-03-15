@@ -69,7 +69,7 @@ type AssemblyVtbl struct {
 	get_GlobalAssemblyCache     uintptr
 }
 
-func NewAssembly(ppv uintptr) *Assembly {
+func NewAssemblyFromPtr(ppv uintptr) *Assembly {
 	return (*Assembly)(unsafe.Pointer(ppv))
 }
 

@@ -14,6 +14,7 @@ var (
 	procCLRCreateInstance = modMSCoree.NewProc("CLRCreateInstance")
 )
 
+// Wrapper for the mscorree.dll CLRCreateInstance syscall
 func CLRCreateInstance(clsid, riid *windows.GUID, ppInterface *uintptr) uintptr {
 	ret, _, _ := procCLRCreateInstance.Call(
 		uintptr(unsafe.Pointer(clsid)),
@@ -22,24 +23,15 @@ func CLRCreateInstance(clsid, riid *windows.GUID, ppInterface *uintptr) uintptr 
 	return ret
 }
 
-func GetICLRMetaHost() (metahost *ICLRMetaHost, err error) {
-	var pMetaHost uintptr
-	hr := CLRCreateInstance(&CLSID_CLRMetaHost, &IID_ICLRMetaHost, &pMetaHost)
-	err = checkOK(hr, "CLRCreateInstance")
-	if err != nil {
-		return
-	}
-	metahost = NewICLRMetaHost(pMetaHost)
-	return
-}
 
-//ICLRMetaHost Interface from metahost.h
 // Couldnt have done any of this without this SO answer I stumbled on:
 // https://stackoverflow.com/questions/37781676/how-to-use-com-component-object-model-in-golang
 
+//ICLRMetaHost Interface from metahost.h
 type ICLRMetaHost struct {
 	vtbl *ICLRMetaHostVtbl
 }
+
 type ICLRMetaHostVtbl struct {
 	QueryInterface                   uintptr
 	AddRef                           uintptr
@@ -53,8 +45,20 @@ type ICLRMetaHostVtbl struct {
 	ExitProcess                      uintptr
 }
 
-// newICLRMetaHost takes a uintptr to ICLRMetahost, which must come from the syscall CLRCreateInstance
-func NewICLRMetaHost(ppv uintptr) *ICLRMetaHost {
+// GetICLRMetaHost is a wrapper function to create and return an ICLRMetahost object
+func GetICLRMetaHost() (metahost *ICLRMetaHost, err error) {
+	var pMetaHost uintptr
+	hr := CLRCreateInstance(&CLSID_CLRMetaHost, &IID_ICLRMetaHost, &pMetaHost)
+	err = checkOK(hr, "CLRCreateInstance")
+	if err != nil {
+		return
+	}
+	metahost = NewICLRMetaHostFromPtr(pMetaHost)
+	return
+}
+
+// NewICLRMetaHost takes a uintptr to an ICLRMetahost struct in memory. This pointer should come from the syscall CLRCreateInstance
+func NewICLRMetaHostFromPtr(ppv uintptr) *ICLRMetaHost {
 	return (*ICLRMetaHost)(unsafe.Pointer(ppv))
 }
 
@@ -89,10 +93,6 @@ func (obj *ICLRMetaHost) EnumerateInstalledRuntimes(pInstalledRuntimes *uintptr)
 }
 
 func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16, riid *windows.GUID, pRuntimeHost *uintptr) uintptr {
-	// v4Ptr, err := syscall.UTF16PtrFromString("v4.0.30319")
-	// if err != nil {
-	// 	panic(err)
-	// }
 	ret, _, _ := syscall.Syscall6(
 		obj.vtbl.GetRuntime,
 		4,

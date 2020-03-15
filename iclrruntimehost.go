@@ -25,8 +25,22 @@ type ICLRRuntimeHostVtbl struct {
 	ExecuteApplication        uintptr
 	ExecuteInDefaultAppDomain uintptr
 }
+// GetICLRRuntimeHost is a wrapper function that takes an ICLRRuntimeInfo object and
+// returns an ICLRRuntimeHost and loads it into the current process
+func GetICLRRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICLRRuntimeHost, error) {
+	var pRuntimeHost uintptr
+	hr := runtimeInfo.GetInterface(&CLSID_CLRRuntimeHost, &IID_ICLRRuntimeHost, &pRuntimeHost)
+	err := checkOK(hr, "runtimeInfo.GetInterface")
+	if err != nil {
+		return nil, err
+	}
+	runtimeHost := NewICLRRuntimeHostFromPtr(pRuntimeHost)
+	hr = runtimeHost.Start()
+	err = checkOK(hr, "runtimeHost.Start")
+	return runtimeHost, err
+}
 
-func NewICLRRuntimeHost(ppv uintptr) *ICLRRuntimeHost {
+func NewICLRRuntimeHostFromPtr(ppv uintptr) *ICLRRuntimeHost {
 	return (*ICLRRuntimeHost)(unsafe.Pointer(ppv))
 }
 

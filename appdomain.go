@@ -86,6 +86,7 @@ type AppDomainVtbl struct {
 	get_DynamicDirectory      uintptr
 }
 
+// GetAppDomain is a wrapper function that returns an appDomain from an existing ICORRuntimeHost object
 func GetAppDomain(runtimeHost *ICORRuntimeHost) (appDomain *AppDomain, err error) {
 	var pAppDomain uintptr
 	var pIUnknown uintptr
@@ -94,13 +95,13 @@ func GetAppDomain(runtimeHost *ICORRuntimeHost) (appDomain *AppDomain, err error
 	if err != nil {
 		return
 	}
-	iu := NewIUnknown(pIUnknown)
+	iu := NewIUnknownFromPtr(pIUnknown)
 	hr = iu.QueryInterface(&IID_AppDomain, &pAppDomain)
 	err = checkOK(hr, "IUnknown.QueryInterface")
-	return NewAppDomain(pAppDomain), err
+	return NewAppDomainFromPtr(pAppDomain), err
 }
 
-func NewAppDomain(ppv uintptr) *AppDomain {
+func NewAppDomainFromPtr(ppv uintptr) *AppDomain {
 	return (*AppDomain)(unsafe.Pointer(ppv))
 }
 

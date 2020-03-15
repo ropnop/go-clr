@@ -32,6 +32,8 @@ type SafeArrayBound struct {
 	lLbound   int32
 }
 
+// CreateSafeArray is a wrapper function that takes in a Go byte array and creates a SafeArray by making two syscalls
+// and copying raw memory into the correct spot.
 func CreateSafeArray(rawBytes []byte) (SafeArray, error) {
 	modOleAuto, err := syscall.LoadDLL("OleAut32.dll")
 	if err != nil {

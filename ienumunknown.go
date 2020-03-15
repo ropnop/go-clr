@@ -21,7 +21,7 @@ type IEnumUnknownVtbl struct {
 	Clone          uintptr
 }
 
-func NewIEnumUnknown(ppv uintptr) *IEnumUnknown {
+func NewIEnumUnknownFromPtr(ppv uintptr) *IEnumUnknown {
 	return (*IEnumUnknown)(unsafe.Pointer(ppv))
 }
 
