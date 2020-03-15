@@ -6,7 +6,7 @@ This is my PoC code for hosting the CLR in a Go process and using it to execute 
 It's written in pure Go by just wrapping the needed syscalls and making use of a lot of unsafe.Pointers to 
 load structs from memory.
 
-For more info and references, see [this blog post](todo).
+For more info and references, see [this blog post](https://blog.ropnop.com/hosting-clr-in-golang/).
 
 This was was a fun project and proof of concept, but the code is definitely not "production ready". It makes heavy use 
 of `unsafe` and it's probably very unstable. I don't plan on supporting it much moving forward,
