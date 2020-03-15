@@ -45,10 +45,10 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	return runtimes, err
 }
 
-// ExecuteDLL is a wrapper function that will automatically load the latest installed CLR into the current process
+// ExecuteDLLFromDisk is a wrapper function that will automatically load the latest installed CLR into the current process
 // and execute a DLL on disk in the default app domain. It takes in the DLLPath, TypeName, MethodName and Argument to use
 // as strings. It returns the return code from the assembly
-func ExecuteDLL(dllpath, typeName, methodName, argument string) (retCode int16, err error) {
+func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode int16, err error) {
 	retCode = -1
 	metahost, err := GetICLRMetaHost()
 	if err != nil {

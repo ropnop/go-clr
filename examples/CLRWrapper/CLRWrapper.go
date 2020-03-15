@@ -12,7 +12,7 @@ import (
 
 func main() {
 	fmt.Println("[+] Loading DLL from Disk")
-	ret, err := clr.ExecuteDLL(
+	ret, err := clr.ExecuteDLLFromDisk(
 		"TestDLL.dll",
 		"TestDLL.HelloWorld",
 		"SayHello",
