@@ -3,10 +3,9 @@
 package clr
 
 import (
+	"golang.org/x/sys/windows"
 	"syscall"
 	"unsafe"
-
-	"github.com/Microsoft/go-winio/pkg/guid"
 )
 
 // from mscorlib.tlh
@@ -63,7 +62,7 @@ func NewMethodInfoFromPtr(ppv uintptr) *MethodInfo {
 	return (*MethodInfo)(unsafe.Pointer(ppv))
 }
 
-func (obj *MethodInfo) QueryInterface(riid *guid.GUID, ppvObject *uintptr) uintptr {
+func (obj *MethodInfo) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,

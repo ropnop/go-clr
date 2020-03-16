@@ -3,10 +3,9 @@
 package clr
 
 import (
+	"golang.org/x/sys/windows"
 	"syscall"
 	"unsafe"
-
-	"github.com/Microsoft/go-winio/pkg/guid"
 )
 
 type AppDomain struct {
@@ -105,7 +104,7 @@ func NewAppDomainFromPtr(ppv uintptr) *AppDomain {
 	return (*AppDomain)(unsafe.Pointer(ppv))
 }
 
-func (obj *AppDomain) QueryInterface(riid *guid.GUID, ppvObject *uintptr) uintptr {
+func (obj *AppDomain) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,

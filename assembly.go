@@ -3,10 +3,9 @@
 package clr
 
 import (
+	"golang.org/x/sys/windows"
 	"syscall"
 	"unsafe"
-
-	"github.com/Microsoft/go-winio/pkg/guid"
 )
 
 // from mscorlib.tlh
@@ -73,7 +72,7 @@ func NewAssemblyFromPtr(ppv uintptr) *Assembly {
 	return (*Assembly)(unsafe.Pointer(ppv))
 }
 
-func (obj *Assembly) QueryInterface(riid *guid.GUID, ppvObject *uintptr) uintptr {
+func (obj *Assembly) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,
