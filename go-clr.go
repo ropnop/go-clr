@@ -1,5 +1,7 @@
 // +build windows
 
+// go-clr is a PoC package that wraps Windows syscalls necessary to load and the CLR into the current process and
+// execute a managed DLL from disk or a managed EXE from memory
 package clr
 
 import (
