@@ -3,15 +3,16 @@
 package main
 
 import (
-	clr "github.com/ropnop/go-clr"
-	"log"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"runtime"
+
+	clr "github.com/ropnop/go-clr"
 )
 
 func main() {
-	fmt.Println("[+] Loading DLL from Disk")
+	/*fmt.Println("[+] Loading DLL from Disk")
 	ret, err := clr.ExecuteDLLFromDisk(
 		"TestDLL.dll",
 		"TestDLL.HelloWorld",
@@ -21,16 +22,15 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("[+] DLL Return Code: %d\n", ret)
-
-	
+	*/
 	fmt.Println("[+] Executing EXE from memory")
-	exebytes, err := ioutil.ReadFile("helloworld.exe")
+	exebytes, err := ioutil.ReadFile(`C:\Users\ayoul3\Documents\go\reflect-pe\res\managed.exe`)
 	if err != nil {
 		log.Fatal(err)
 	}
 	runtime.KeepAlive(exebytes)
 
-	ret2, err := clr.ExecuteByteArray(exebytes)
+	ret2, err := clr.ExecuteByteArray(exebytes, []string{"test", "test2"})
 	if err != nil {
 		log.Fatal(err)
 	}

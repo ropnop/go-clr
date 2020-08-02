@@ -6,7 +6,6 @@ package clr
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -108,7 +107,7 @@ func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode
 // ExecuteByteArray is a wrapper function that will automatically load the latest supported framework into the current
 // process using the legacy APIs, then load and execute an executable from memory. It takes in a byte array of the
 // executable to load and run and returns the return code. It currently does not support any arguments on the entry point
-func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
+func ExecuteByteArray(rawBytes []byte, params []string) (retCode int32, err error) {
 	retCode = -1
 	metahost, err := GetICLRMetaHost()
 	if err != nil {
@@ -149,13 +148,12 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	if err != nil {
 		return
 	}
-	safeArray, err := CreateSafeArray(rawBytes)
+	safeArrayPtr, err := CreateSafeArray(rawBytes)
 	if err != nil {
 		return
 	}
-	runtime.KeepAlive(&safeArray)
 	var pAssembly uintptr
-	hr = appDomain.Load_3(uintptr(unsafe.Pointer(&safeArray)), &pAssembly)
+	hr = appDomain.Load_3(uintptr(safeArrayPtr), &pAssembly)
 	err = checkOK(hr, "appDomain.Load_3")
 	if err != nil {
 		return
@@ -168,6 +166,21 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 		return
 	}
 	methodInfo := NewMethodInfoFromPtr(pEntryPointInfo)
+
+	var methodSignaturePtr, paramPtr uintptr
+	err = methodInfo.GetString(&methodSignaturePtr)
+	if err != nil {
+		return
+	}
+	methodSignature := readUnicodeStr(unsafe.Pointer(methodSignaturePtr))
+
+	if expectsParams(methodSignature) {
+		paramPtr, err = PrepareParameters(params)
+		if err != nil {
+			return -1, err
+		}
+	}
+
 	var pRetCode uintptr
 	nullVariant := Variant{
 		VT:  1,
@@ -175,7 +188,7 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	}
 	hr = methodInfo.Invoke_3(
 		nullVariant,
-		uintptr(0),
+		paramPtr,
 		&pRetCode)
 	err = checkOK(hr, "methodInfo.Invoke_3")
 	if err != nil {
@@ -187,4 +200,30 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	metahost.Release()
 	return int32(pRetCode), nil
 
+}
+
+func PrepareParameters(params []string) (uintptr, error) {
+	listStrSafeArrayPtr, err := CreateEmptySafeArray(0x0008, len(params)) // VT_BSTR
+	if err != nil {
+		return 0, err
+	}
+	for i, p := range params {
+		bstr, _ := SysAllocString(p)
+		SafeArrayPutElement(listStrSafeArrayPtr, bstr, i)
+	}
+
+	paramVariant := Variant{
+		VT:  0x0008 | 0x2000, // VT_BSTR | VT_ARRAY
+		Val: uintptr(listStrSafeArrayPtr),
+	}
+
+	paramsSafeArrayPtr, err := CreateEmptySafeArray(0x000C, 1) // VT_VARIANT
+	if err != nil {
+		return 0, err
+	}
+	err = SafeArrayPutElement(paramsSafeArrayPtr, unsafe.Pointer(&paramVariant), 0)
+	if err != nil {
+		return 0, err
+	}
+	return uintptr(paramsSafeArrayPtr), nil
 }
