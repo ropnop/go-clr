@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	/*fmt.Println("[+] Loading DLL from Disk")
+	fmt.Println("[+] Loading DLL from Disk")
 	ret, err := clr.ExecuteDLLFromDisk(
 		"TestDLL.dll",
 		"TestDLL.HelloWorld",
@@ -22,9 +22,9 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("[+] DLL Return Code: %d\n", ret)
-	*/
+
 	fmt.Println("[+] Executing EXE from memory")
-	exebytes, err := ioutil.ReadFile(`C:\Users\ayoul3\Documents\go\reflect-pe\res\managed.exe`)
+	exebytes, err := ioutil.ReadFile(`hellworld.exe`)
 	if err != nil {
 		log.Fatal(err)
 	}
