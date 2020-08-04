@@ -24,7 +24,7 @@ func main() {
 	fmt.Printf("[+] DLL Return Code: %d\n", ret)
 
 	fmt.Println("[+] Executing EXE from memory")
-	exebytes, err := ioutil.ReadFile(`hellworld.exe`)
+	exebytes, err := ioutil.ReadFile("helloworld.exe")
 	if err != nil {
 		log.Fatal(err)
 	}

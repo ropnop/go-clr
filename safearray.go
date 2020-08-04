@@ -30,8 +30,8 @@ type SafeArrayBound struct {
 	lLbound   int32
 }
 
-// CreateSafeArray is a wrapper function that takes in a Go byte array and creates a SafeArray by making two syscalls
-// and copying raw memory into the correct spot.
+// CreateSafeArray is a wrapper function that takes in a Go byte array and creates a SafeArray containing unsigned bytes
+// by making two syscalls and copying raw memory into the correct spot.
 func CreateSafeArray(rawBytes []byte) (unsafe.Pointer, error) {
 
 	saPtr, err := CreateEmptySafeArray(0x11, len(rawBytes)) // VT_UI1
@@ -53,6 +53,8 @@ func CreateSafeArray(rawBytes []byte) (unsafe.Pointer, error) {
 
 }
 
+// CreateEmptySafeArray is a wrapper function that takes an array type and a size and creates a safe array with corresponding
+// properties. It returns a pointer to that empty array.
 func CreateEmptySafeArray(arrayType int, size int) (unsafe.Pointer, error) {
 	modOleAuto := syscall.MustLoadDLL("OleAut32.dll")
 	procSafeArrayCreate := modOleAuto.MustFindProc("SafeArrayCreate")
@@ -75,6 +77,8 @@ func CreateEmptySafeArray(arrayType int, size int) (unsafe.Pointer, error) {
 
 }
 
+// SysAllocString converts a Go string to a BTSR string, that is a unicode string prefixed with its length.
+// It returns a pointer to the string's content.
 func SysAllocString(str string) (unsafe.Pointer, error) {
 	modOleAuto := syscall.MustLoadDLL("OleAut32.dll")
 	sysAllocString := modOleAuto.MustFindProc("SysAllocString")
@@ -88,6 +92,7 @@ func SysAllocString(str string) (unsafe.Pointer, error) {
 	return unsafe.Pointer(ret), nil
 }
 
+// SafeArrayPutElement pushes an element to the safe array at a given index
 func SafeArrayPutElement(array, btsr unsafe.Pointer, index int) (err error) {
 	modOleAuto := syscall.MustLoadDLL("OleAut32.dll")
 	safeArrayPutElement := modOleAuto.MustFindProc("SafeArrayPutElement")

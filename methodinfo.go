@@ -117,6 +117,7 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters uintptr, pRetVal 
 	return ret
 }
 
+// GetString returns a string version of the method's signature
 func (obj *MethodInfo) GetString(addr *uintptr) error {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.get_ToString,
