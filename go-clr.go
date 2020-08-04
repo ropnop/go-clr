@@ -201,6 +201,8 @@ func ExecuteByteArray(rawBytes []byte, params []string) (retCode int32, err erro
 
 }
 
+// PrepareParameters creates a safe array of strings (arguments) nested inside a Variant object, which is itself
+// appended to the final safe array
 func PrepareParameters(params []string) (uintptr, error) {
 	listStrSafeArrayPtr, err := CreateEmptySafeArray(0x0008, len(params)) // VT_BSTR
 	if err != nil {
