@@ -47,10 +47,13 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 }
 
 // ExecuteDLLFromDisk is a wrapper function that will automatically load the latest installed CLR into the current process
-// and execute a DLL on disk in the default app domain. It takes in the DLLPath, TypeName, MethodName and Argument to use
-// as strings. It returns the return code from the assembly
-func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode int16, err error) {
+// and execute a DLL on disk in the default app domain. It takes in the target runtime, DLLPath, TypeName, MethodName
+// and Argument to use as strings. It returns the return code from the assembly
+func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument string) (retCode int16, err error) {
 	retCode = -1
+	if targetRuntime == "" {
+		targetRuntime = "v4"
+	}
 	metahost, err := GetICLRMetaHost()
 	if err != nil {
 		return
@@ -62,7 +65,7 @@ func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode
 	}
 	var latestRuntime string
 	for _, r := range runtimes {
-		if strings.Contains(r, "v4") {
+		if strings.Contains(r, targetRuntime) {
 			latestRuntime = r
 			break
 		} else {
@@ -104,11 +107,15 @@ func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode
 
 }
 
-// ExecuteByteArray is a wrapper function that will automatically load the latest supported framework into the current
-// process using the legacy APIs, then load and execute an executable from memory. It takes in a byte array of the
-// executable to load and run and returns the return code. You can supply an array of strings as command line arguments.
-func ExecuteByteArray(rawBytes []byte, params []string) (retCode int32, err error) {
+// ExecuteByteArray is a wrapper function that will automatically loads the supplied target framework into the current
+// process using the legacy APIs, then load and execute an executable from memory. If no targetRuntime is specified, it
+// will default to latest. It takes in a byte array of the executable to load and run and returns the return code.
+// You can supply an array of strings as command line arguments.
+func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (retCode int32, err error) {
 	retCode = -1
+	if targetRuntime == "" {
+		targetRuntime = "v4"
+	}
 	metahost, err := GetICLRMetaHost()
 	if err != nil {
 		return
@@ -120,7 +127,7 @@ func ExecuteByteArray(rawBytes []byte, params []string) (retCode int32, err erro
 	}
 	var latestRuntime string
 	for _, r := range runtimes {
-		if strings.Contains(r, "v4") {
+		if strings.Contains(r, targetRuntime) {
 			latestRuntime = r
 			break
 		} else {
