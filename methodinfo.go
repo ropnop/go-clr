@@ -3,9 +3,10 @@
 package clr
 
 import (
-	"golang.org/x/sys/windows"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // from mscorlib.tlh
@@ -108,10 +109,22 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters uintptr, pRetVal 
 		4,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&variantObj)),
-		0,
+		parameters,
 		uintptr(unsafe.Pointer(pRetVal)),
 		0,
 		0,
 	)
 	return ret
+}
+
+// GetString returns a string version of the method's signature
+func (obj *MethodInfo) GetString(addr *uintptr) error {
+	ret, _, _ := syscall.Syscall(
+		obj.vtbl.get_ToString,
+		2,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(addr)),
+		0,
+	)
+	return checkOK(ret, "get_ToString")
 }
