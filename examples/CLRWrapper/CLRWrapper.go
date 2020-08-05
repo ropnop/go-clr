@@ -14,6 +14,7 @@ import (
 func main() {
 	fmt.Println("[+] Loading DLL from Disk")
 	ret, err := clr.ExecuteDLLFromDisk(
+		"v4",
 		"TestDLL.dll",
 		"TestDLL.HelloWorld",
 		"SayHello",
@@ -30,7 +31,7 @@ func main() {
 	}
 	runtime.KeepAlive(exebytes)
 
-	ret2, err := clr.ExecuteByteArray(exebytes, []string{"test", "test2"})
+	ret2, err := clr.ExecuteByteArray("v2", exebytes, []string{"test", "test2"})
 	if err != nil {
 		log.Fatal(err)
 	}
