@@ -6,7 +6,6 @@ package clr
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -48,10 +47,13 @@ func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 }
 
 // ExecuteDLLFromDisk is a wrapper function that will automatically load the latest installed CLR into the current process
-// and execute a DLL on disk in the default app domain. It takes in the DLLPath, TypeName, MethodName and Argument to use
-// as strings. It returns the return code from the assembly
-func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode int16, err error) {
+// and execute a DLL on disk in the default app domain. It takes in the target runtime, DLLPath, TypeName, MethodName
+// and Argument to use as strings. It returns the return code from the assembly
+func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument string) (retCode int16, err error) {
 	retCode = -1
+	if targetRuntime == "" {
+		targetRuntime = "v4"
+	}
 	metahost, err := GetICLRMetaHost()
 	if err != nil {
 		return
@@ -63,7 +65,7 @@ func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode
 	}
 	var latestRuntime string
 	for _, r := range runtimes {
-		if strings.Contains(r, "v4") {
+		if strings.Contains(r, targetRuntime) {
 			latestRuntime = r
 			break
 		} else {
@@ -105,11 +107,15 @@ func ExecuteDLLFromDisk(dllpath, typeName, methodName, argument string) (retCode
 
 }
 
-// ExecuteByteArray is a wrapper function that will automatically load the latest supported framework into the current
-// process using the legacy APIs, then load and execute an executable from memory. It takes in a byte array of the
-// executable to load and run and returns the return code. It currently does not support any arguments on the entry point
-func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
+// ExecuteByteArray is a wrapper function that will automatically loads the supplied target framework into the current
+// process using the legacy APIs, then load and execute an executable from memory. If no targetRuntime is specified, it
+// will default to latest. It takes in a byte array of the executable to load and run and returns the return code.
+// You can supply an array of strings as command line arguments.
+func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (retCode int32, err error) {
 	retCode = -1
+	if targetRuntime == "" {
+		targetRuntime = "v4"
+	}
 	metahost, err := GetICLRMetaHost()
 	if err != nil {
 		return
@@ -121,7 +127,7 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	}
 	var latestRuntime string
 	for _, r := range runtimes {
-		if strings.Contains(r, "v4") {
+		if strings.Contains(r, targetRuntime) {
 			latestRuntime = r
 			break
 		} else {
@@ -149,13 +155,12 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	if err != nil {
 		return
 	}
-	safeArray, err := CreateSafeArray(rawBytes)
+	safeArrayPtr, err := CreateSafeArray(rawBytes)
 	if err != nil {
 		return
 	}
-	runtime.KeepAlive(&safeArray)
 	var pAssembly uintptr
-	hr = appDomain.Load_3(uintptr(unsafe.Pointer(&safeArray)), &pAssembly)
+	hr = appDomain.Load_3(uintptr(safeArrayPtr), &pAssembly)
 	err = checkOK(hr, "appDomain.Load_3")
 	if err != nil {
 		return
@@ -168,6 +173,20 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 		return
 	}
 	methodInfo := NewMethodInfoFromPtr(pEntryPointInfo)
+
+	var methodSignaturePtr, paramPtr uintptr
+	err = methodInfo.GetString(&methodSignaturePtr)
+	if err != nil {
+		return
+	}
+	methodSignature := readUnicodeStr(unsafe.Pointer(methodSignaturePtr))
+
+	if expectsParams(methodSignature) {
+		if paramPtr, err = PrepareParameters(params); err != nil {
+			return
+		}
+	}
+
 	var pRetCode uintptr
 	nullVariant := Variant{
 		VT:  1,
@@ -175,7 +194,7 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	}
 	hr = methodInfo.Invoke_3(
 		nullVariant,
-		uintptr(0),
+		paramPtr,
 		&pRetCode)
 	err = checkOK(hr, "methodInfo.Invoke_3")
 	if err != nil {
@@ -187,4 +206,32 @@ func ExecuteByteArray(rawBytes []byte) (retCode int32, err error) {
 	metahost.Release()
 	return int32(pRetCode), nil
 
+}
+
+// PrepareParameters creates a safe array of strings (arguments) nested inside a Variant object, which is itself
+// appended to the final safe array
+func PrepareParameters(params []string) (uintptr, error) {
+	listStrSafeArrayPtr, err := CreateEmptySafeArray(0x0008, len(params)) // VT_BSTR
+	if err != nil {
+		return 0, err
+	}
+	for i, p := range params {
+		bstr, _ := SysAllocString(p)
+		SafeArrayPutElement(listStrSafeArrayPtr, bstr, i)
+	}
+
+	paramVariant := Variant{
+		VT:  0x0008 | 0x2000, // VT_BSTR | VT_ARRAY
+		Val: uintptr(listStrSafeArrayPtr),
+	}
+
+	paramsSafeArrayPtr, err := CreateEmptySafeArray(0x000C, 1) // VT_VARIANT
+	if err != nil {
+		return 0, err
+	}
+	err = SafeArrayPutElement(paramsSafeArrayPtr, unsafe.Pointer(&paramVariant), 0)
+	if err != nil {
+		return 0, err
+	}
+	return uintptr(paramsSafeArrayPtr), nil
 }
