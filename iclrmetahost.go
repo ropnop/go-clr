@@ -3,26 +3,12 @@
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
-
-var (
-	modMSCoree            = syscall.NewLazyDLL("mscoree.dll")
-	procCLRCreateInstance = modMSCoree.NewProc("CLRCreateInstance")
-)
-
-// Wrapper for the mscorree.dll CLRCreateInstance syscall
-func CLRCreateInstance(clsid, riid *windows.GUID, ppInterface *uintptr) uintptr {
-	ret, _, _ := procCLRCreateInstance.Call(
-		uintptr(unsafe.Pointer(clsid)),
-		uintptr(unsafe.Pointer(riid)),
-		uintptr(unsafe.Pointer(ppInterface)))
-	return ret
-}
-
 
 // Couldnt have done any of this without this SO answer I stumbled on:
 // https://stackoverflow.com/questions/37781676/how-to-use-com-component-object-model-in-golang
@@ -45,16 +31,42 @@ type ICLRMetaHostVtbl struct {
 	ExitProcess                      uintptr
 }
 
-// GetICLRMetaHost is a wrapper function to create and return an ICLRMetahost object
-func GetICLRMetaHost() (metahost *ICLRMetaHost, err error) {
-	var pMetaHost uintptr
-	hr := CLRCreateInstance(&CLSID_CLRMetaHost, &IID_ICLRMetaHost, &pMetaHost)
-	err = checkOK(hr, "CLRCreateInstance")
-	if err != nil {
+// CLRCreateInstance provides one of three interfaces: ICLRMetaHost, ICLRMetaHostPolicy, or ICLRDebugging.
+// HRESULT CLRCreateInstance(
+//   [in]  REFCLSID  clsid,
+//   [in]  REFIID     riid,
+//   [out] LPVOID  * ppInterface
+// );
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/clrcreateinstance-function
+func CLRCreateInstance(clsid, riid windows.GUID) (ppInterface *ICLRMetaHost, err error) {
+	debugPrint("Entering into iclrmetahost.CLRCreateInstance()...")
+
+	if clsid != CLSID_CLRMetaHost {
+		err = fmt.Errorf("the input Class ID (CLSID) is not supported: %s", clsid)
 		return
 	}
-	metahost = NewICLRMetaHostFromPtr(pMetaHost)
+
+	modMSCoree := syscall.MustLoadDLL("mscoree.dll")
+	procCLRCreateInstance := modMSCoree.MustFindProc("CLRCreateInstance")
+
+	// For some reason this procedure call returns "The specified procedure could not be found." even though it works
+	hr, _, _ := procCLRCreateInstance.Call(
+		uintptr(unsafe.Pointer(&clsid)),
+		uintptr(unsafe.Pointer(&riid)),
+		uintptr(unsafe.Pointer(&ppInterface)),
+	)
+
+	if hr != S_OK {
+		err = fmt.Errorf("the mscoree!CLRCreateInstance function returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
 	return
+}
+
+// GetICLRMetaHost is a wrapper function to create and return an ICLRMetahost object
+func GetICLRMetaHost() (metahost *ICLRMetaHost, err error) {
+	return CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
 }
 
 // NewICLRMetaHost takes a uintptr to an ICLRMetahost struct in memory. This pointer should come from the syscall CLRCreateInstance

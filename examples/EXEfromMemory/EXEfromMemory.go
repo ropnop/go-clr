@@ -45,15 +45,13 @@ func main() {
 		params = os.Args[2:]
 	}
 
-	var pMetaHost uintptr
-	hr := clr.CLRCreateInstance(&clr.CLSID_CLRMetaHost, &clr.IID_ICLRMetaHost, &pMetaHost)
-	checkOK(hr, "CLRCreateInstance")
-	metaHost := clr.NewICLRMetaHostFromPtr(pMetaHost)
+	metaHost, err := clr.CLRCreateInstance(clr.CLSID_CLRMetaHost, clr.IID_ICLRMetaHost)
+	must(err)
 
 	versionString := "v4.0.30319"
 	pwzVersion, _ := syscall.UTF16PtrFromString(versionString)
 	var pRuntimeInfo uintptr
-	hr = metaHost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
+	hr := metaHost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
 	checkOK(hr, "metahost.GetRuntime")
 	runtimeInfo := clr.NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
 
@@ -84,8 +82,6 @@ func main() {
 	appDomain := clr.NewAppDomainFromPtr(pAppDomain)
 	fmt.Println("[+] Got default AppDomain")
 
-	fmt.Printf("[+] Loaded %d bytes into memory from %s\n", len(exebytes), filename)
-
 	safeArray, err := clr.CreateSafeArray(exebytes)
 	must(err)
 	runtime.KeepAlive(safeArray)
@@ -93,6 +89,7 @@ func main() {
 
 	assembly, err := appDomain.Load_3(safeArray)
 	must(err)
+	fmt.Printf("[+] Loaded %d bytes into memory from %s\n", len(exebytes), filename)
 	fmt.Printf("[+] Executable loaded into memory at %p\n", assembly)
 
 	var pEntryPointInfo uintptr
