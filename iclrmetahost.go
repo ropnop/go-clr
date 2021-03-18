@@ -66,12 +66,8 @@ func CLRCreateInstance(clsid, riid windows.GUID) (ppInterface *ICLRMetaHost, err
 
 // GetICLRMetaHost is a wrapper function to create and return an ICLRMetahost object
 func GetICLRMetaHost() (metahost *ICLRMetaHost, err error) {
+	// TODO Get rid of ^ function
 	return CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
-}
-
-// NewICLRMetaHost takes a uintptr to an ICLRMetahost struct in memory. This pointer should come from the syscall CLRCreateInstance
-func NewICLRMetaHostFromPtr(ppv uintptr) *ICLRMetaHost {
-	return (*ICLRMetaHost)(unsafe.Pointer(ppv))
 }
 
 func (obj *ICLRMetaHost) AddRef() uintptr {
@@ -94,25 +90,62 @@ func (obj *ICLRMetaHost) Release() uintptr {
 	return ret
 }
 
-func (obj *ICLRMetaHost) EnumerateInstalledRuntimes(pInstalledRuntimes *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall(
+// EnumerateInstalledRuntimes returns an enumeration that contains a valid ICLRRuntimeInfo interface for each
+// version of the common language runtime (CLR) that is installed on a computer.
+// HRESULT EnumerateInstalledRuntimes (
+//   [out, retval] IEnumUnknown **ppEnumerator);
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-enumerateinstalledruntimes-method
+func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknown, err error) {
+	debugPrint("Entering into iclrmetahost.EnumerateInstalledRuntimes()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.EnumerateInstalledRuntimes,
 		2,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pInstalledRuntimes)),
-		0)
-	return ret
+		uintptr(unsafe.Pointer(ppEnumerator)),
+		0,
+	)
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("there was an error calling the ICLRMetaHost::GetRuntime method:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICLRMetaHost::GetRuntime method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	return
 }
 
-func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16, riid *windows.GUID, pRuntimeHost *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall6(
+// GetRuntime gets the ICLRRuntimeInfo interface that corresponds to a particular version of the common language runtime (CLR).
+// This method supersedes the CorBindToRuntimeEx function used with the STARTUP_LOADER_SAFEMODE flag.
+// HRESULT GetRuntime (
+//   [in] LPCWSTR pwzVersion,
+//   [in] REFIID riid,
+//   [out,iid_is(riid), retval] LPVOID *ppRuntime
+// );
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-getruntime-method
+func (obj *ICLRMetaHost) GetRuntime(pwzVersion *uint16, riid windows.GUID) (ppRuntime *ICLRRuntimeInfo, err error) {
+	debugPrint("Entering into iclrmetahost.GetRuntime()...")
+
+	hr, _, err := syscall.Syscall6(
 		obj.vtbl.GetRuntime,
 		4,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(pwzVersion)),
 		uintptr(unsafe.Pointer(&IID_ICLRRuntimeInfo)),
-		uintptr(unsafe.Pointer(pRuntimeHost)),
+		uintptr(unsafe.Pointer(&ppRuntime)),
 		0,
-		0)
-	return ret
+		0,
+	)
+
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("there was an error calling the ICLRMetaHost::GetRuntime method:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICLRMetaHost::GetRuntime method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	return
 }

@@ -3,6 +3,7 @@
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 )
@@ -45,15 +46,33 @@ func (obj *IEnumUnknown) Release() uintptr {
 	return ret
 }
 
-func (obj *IEnumUnknown) Next(celt uint32, pEnumRuntime *uintptr, pCeltFetched *uint32) uintptr {
-	ret, _, _ := syscall.Syscall6(
+// Next retrieves the specified number of items in the enumeration sequence.
+// HRESULT Next(
+//   ULONG    celt,
+//   IUnknown **rgelt,
+//   ULONG    *pceltFetched
+// );
+// https://docs.microsoft.com/en-us/windows/win32/api/objidl/nf-objidl-ienumunknown-next
+func (obj *IEnumUnknown) Next(celt uint32, pEnumRuntime unsafe.Pointer, pceltFetched *uint32) (err error) {
+	debugPrint("Entering into ienumunknown.Next()...")
+	hr, _, err := syscall.Syscall6(
 		obj.vtbl.Next,
 		4,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(celt),
-		uintptr(unsafe.Pointer(pEnumRuntime)),
-		uintptr(unsafe.Pointer(pCeltFetched)),
+		uintptr(pEnumRuntime),
+		uintptr(unsafe.Pointer(pceltFetched)),
 		0,
-		0)
-	return ret
+		0,
+	)
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("there was an error calling the IEnumUnknown::Next method:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the IEnumUnknown::Next method method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	return
 }

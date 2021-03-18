@@ -3,9 +3,10 @@
 package clr
 
 import (
-	"golang.org/x/sys/windows"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 type ICLRRuntimeInfo struct {
@@ -36,17 +37,7 @@ func GetRuntimeInfo(metahost *ICLRMetaHost, version string) (*ICLRRuntimeInfo, e
 	if err != nil {
 		return nil, err
 	}
-	var pRuntimeInfo uintptr
-	hr := metahost.GetRuntime(pwzVersion, &IID_ICLRRuntimeInfo, &pRuntimeInfo)
-	err = checkOK(hr, "metahost.GetRuntime")
-	if err != nil {
-		return nil, err
-	}
-	return NewICLRRuntimeInfoFromPtr(pRuntimeInfo), nil
-}
-
-func NewICLRRuntimeInfoFromPtr(ppv uintptr) *ICLRRuntimeInfo {
-	return (*ICLRRuntimeInfo)(unsafe.Pointer(ppv))
+	return metahost.GetRuntime(pwzVersion, IID_ICLRRuntimeInfo)
 }
 
 func (obj *ICLRRuntimeInfo) AddRef() uintptr {

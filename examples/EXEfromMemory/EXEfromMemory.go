@@ -49,14 +49,13 @@ func main() {
 	must(err)
 
 	versionString := "v4.0.30319"
-	pwzVersion, _ := syscall.UTF16PtrFromString(versionString)
-	var pRuntimeInfo uintptr
-	hr := metaHost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
-	checkOK(hr, "metahost.GetRuntime")
-	runtimeInfo := clr.NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
+	pwzVersion, err := syscall.UTF16PtrFromString(versionString)
+	must(err)
+	runtimeInfo, err := metaHost.GetRuntime(pwzVersion, clr.IID_ICLRRuntimeInfo)
+	must(err)
 
 	var isLoadable bool
-	hr = runtimeInfo.IsLoadable(&isLoadable)
+	hr := runtimeInfo.IsLoadable(&isLoadable)
 	checkOK(hr, "runtimeInfo.IsLoadable")
 	if !isLoadable {
 		log.Fatal("[!] IsLoadable returned false. Bailing...")

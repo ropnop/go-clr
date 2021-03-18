@@ -14,25 +14,21 @@ import (
 // GetInstallRuntimes is a wrapper function that returns an array of installed runtimes. Requires an existing ICLRMetaHost
 func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	var runtimes []string
-	var pInstalledRuntimes uintptr
-	hr := metahost.EnumerateInstalledRuntimes(&pInstalledRuntimes)
-	err := checkOK(hr, "EnumerateInstalledRuntimes")
+	installedRuntimes, err := metahost.EnumerateInstalledRuntimes()
 	if err != nil {
 		return runtimes, err
 	}
-	installedRuntimes := NewIEnumUnknownFromPtr(pInstalledRuntimes)
-	var pRuntimeInfo uintptr
+
 	var fetched = uint32(0)
 	var versionString string
 	versionStringBytes := make([]uint16, 20)
 	versionStringSize := uint32(len(versionStringBytes))
 	var runtimeInfo *ICLRRuntimeInfo
 	for {
-		hr = installedRuntimes.Next(1, &pRuntimeInfo, &fetched)
-		if hr != S_OK {
+		err := installedRuntimes.Next(1, unsafe.Pointer(runtimeInfo), &fetched)
+		if err != nil {
 			break
 		}
-		runtimeInfo = NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
 		if ret := runtimeInfo.GetVersionString(&versionStringBytes[0], &versionStringSize); ret != S_OK {
 			return runtimes, fmt.Errorf("GetVersionString returned 0x%08x", ret)
 		}
