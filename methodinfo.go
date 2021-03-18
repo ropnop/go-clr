@@ -104,6 +104,7 @@ func (obj *MethodInfo) GetType(pRetVal *uintptr) uintptr {
 }
 
 func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters uintptr, pRetVal *uintptr) uintptr {
+	debugPrint("Entering into appdomain.Invoke_3()...")
 	ret, _, _ := syscall.Syscall6(
 		obj.vtbl.Invoke_3,
 		4,

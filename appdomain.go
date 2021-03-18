@@ -3,6 +3,7 @@
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 
@@ -145,12 +146,30 @@ func (obj *AppDomain) GetHashCode() uintptr {
 	return ret
 }
 
-func (obj *AppDomain) Load_3(pRawAssembly uintptr, asmbly *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall(
+// Load_3 Loads an Assembly into this application domain.
+// virtual HRESULT __stdcall Load_3 (
+// /*[in]*/ SAFEARRAY * rawAssembly,
+// /*[out,retval]*/ struct _Assembly * * pRetVal ) = 0;
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.load?view=net-5.0
+func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (assembly *Assembly, err error) {
+	debugPrint("Entering into appdomain.Load_3()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.Load_3,
 		3,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pRawAssembly)),
-		uintptr(unsafe.Pointer(asmbly)))
-	return ret
+		uintptr(unsafe.Pointer(rawAssembly)),
+		uintptr(unsafe.Pointer(&assembly)),
+	)
+
+	if err != syscall.Errno(0) {
+		return
+	}
+
+	if hr != S_OK {
+		err = fmt.Errorf("the appdomain.Load_3 function returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+
+	return
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -27,8 +28,8 @@ func checkOK(hr uintptr, caller string) {
 }
 
 func init() {
-	if len(os.Args) != 2 {
-		fmt.Println("Usage: EXEfromMemory.exe <exe_file>")
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: EXEfromMemory.exe <exe_file> <exe_args>")
 		os.Exit(1)
 	}
 }
@@ -38,6 +39,11 @@ func main() {
 	exebytes, err := ioutil.ReadFile(filename)
 	must(err)
 	runtime.KeepAlive(exebytes)
+
+	var params []string
+	if len(os.Args) > 2 {
+		params = os.Args[2:]
+	}
 
 	var pMetaHost uintptr
 	hr := clr.CLRCreateInstance(&clr.CLSID_CLRMetaHost, &clr.IID_ICLRMetaHost, &pMetaHost)
@@ -83,29 +89,43 @@ func main() {
 	safeArray, err := clr.CreateSafeArray(exebytes)
 	must(err)
 	runtime.KeepAlive(safeArray)
-	fmt.Println("[+] Crated SafeArray from byte array")
+	fmt.Println("[+] Created SafeArray from byte array")
 
-	var pAssembly uintptr
-	hr = appDomain.Load_3(uintptr(unsafe.Pointer(&safeArray)), &pAssembly)
-	checkOK(hr, "appDomain.Load_3")
-	assembly := clr.NewAssemblyFromPtr(pAssembly)
-	fmt.Printf("[+] Executable loaded into memory at 0x%08x\n", pAssembly)
+	assembly, err := appDomain.Load_3(safeArray)
+	must(err)
+	fmt.Printf("[+] Executable loaded into memory at %p\n", assembly)
 
 	var pEntryPointInfo uintptr
 	hr = assembly.GetEntryPoint(&pEntryPointInfo)
 	checkOK(hr, "assembly.GetEntryPoint")
-	fmt.Printf("[+] Executable entrypoint found at 0x%08x. Calling...\n", pEntryPointInfo)
-	fmt.Println("-------")
+	fmt.Printf("[+] Executable entrypoint found at 0x%x\n", pEntryPointInfo)
 	methodInfo := clr.NewMethodInfoFromPtr(pEntryPointInfo)
+
+	var methodSignaturePtr, paramPtr uintptr
+	err = methodInfo.GetString(&methodSignaturePtr)
+	if err != nil {
+		return
+	}
+	methodSignature := clr.ReadUnicodeStr(unsafe.Pointer(methodSignaturePtr))
+	fmt.Printf("[+] Checking if the assembly requires arguments\n")
+	if !strings.Contains(methodSignature, "Void Main()") {
+		if len(params) < 1 {
+			log.Fatal("the assembly requires arguments but none were provided\nUsage: EXEfromMemory.exe <exe_file> <exe_args>")
+		}
+		if paramPtr, err = clr.PrepareParameters(params); err != nil {
+			log.Fatal(fmt.Sprintf("there was an error preparing the assembly arguments:\r\n%s", err))
+		}
+	}
 
 	var pRetCode uintptr
 	nullVariant := clr.Variant{
 		VT:  1,
 		Val: uintptr(0),
 	}
+	fmt.Println("[+] Invoking...")
 	hr = methodInfo.Invoke_3(
 		nullVariant,
-		uintptr(0),
+		paramPtr,
 		&pRetCode)
 
 	fmt.Println("-------")

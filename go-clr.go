@@ -159,13 +159,12 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if err != nil {
 		return
 	}
-	var pAssembly uintptr
-	hr = appDomain.Load_3(uintptr(safeArrayPtr), &pAssembly)
-	err = checkOK(hr, "appDomain.Load_3")
+
+	assembly, err := appDomain.Load_3(safeArrayPtr)
 	if err != nil {
 		return
 	}
-	assembly := NewAssemblyFromPtr(pAssembly)
+
 	var pEntryPointInfo uintptr
 	hr = assembly.GetEntryPoint(&pEntryPointInfo)
 	err = checkOK(hr, "assembly.GetEntryPoint")
@@ -179,7 +178,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if err != nil {
 		return
 	}
-	methodSignature := readUnicodeStr(unsafe.Pointer(methodSignaturePtr))
+	methodSignature := ReadUnicodeStr(unsafe.Pointer(methodSignaturePtr))
 
 	if expectsParams(methodSignature) {
 		if paramPtr, err = PrepareParameters(params); err != nil {
@@ -211,27 +210,35 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 // PrepareParameters creates a safe array of strings (arguments) nested inside a Variant object, which is itself
 // appended to the final safe array
 func PrepareParameters(params []string) (uintptr, error) {
-	listStrSafeArrayPtr, err := CreateEmptySafeArray(0x0008, len(params)) // VT_BSTR
+	sab := SafeArrayBound{
+		cElements: uint32(len(params)),
+		lLbound:   0,
+	}
+	listStrSafeArrayPtr, err := SafeArrayCreate(VT_BSTR, 1, &sab) // VT_BSTR
 	if err != nil {
 		return 0, err
 	}
 	for i, p := range params {
 		bstr, _ := SysAllocString(p)
-		SafeArrayPutElement(listStrSafeArrayPtr, bstr, i)
+		SafeArrayPutElement(listStrSafeArrayPtr, int32(i), bstr)
 	}
 
 	paramVariant := Variant{
-		VT:  0x0008 | 0x2000, // VT_BSTR | VT_ARRAY
-		Val: uintptr(listStrSafeArrayPtr),
+		VT:  VT_BSTR | VT_ARRAY, // VT_BSTR | VT_ARRAY
+		Val: uintptr(unsafe.Pointer(listStrSafeArrayPtr)),
 	}
 
-	paramsSafeArrayPtr, err := CreateEmptySafeArray(0x000C, 1) // VT_VARIANT
+	sab2 := SafeArrayBound{
+		cElements: uint32(1),
+		lLbound:   0,
+	}
+	paramsSafeArrayPtr, err := SafeArrayCreate(VT_VARIANT, 1, &sab2) // VT_VARIANT
 	if err != nil {
 		return 0, err
 	}
-	err = SafeArrayPutElement(paramsSafeArrayPtr, unsafe.Pointer(&paramVariant), 0)
+	err = SafeArrayPutElement(paramsSafeArrayPtr, int32(0), unsafe.Pointer(&paramVariant))
 	if err != nil {
 		return 0, err
 	}
-	return uintptr(paramsSafeArrayPtr), nil
+	return uintptr(unsafe.Pointer(paramsSafeArrayPtr)), nil
 }
