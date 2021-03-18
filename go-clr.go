@@ -73,8 +73,7 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 		return
 	}
 	var isLoadable bool
-	hr := runtimeInfo.IsLoadable(&isLoadable)
-	err = checkOK(hr, "runtimeInfo.IsLoadable")
+	err = runtimeInfo.IsLoadable(&isLoadable)
 	if err != nil {
 		return
 	}
@@ -91,7 +90,7 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 	pMethodName, _ := syscall.UTF16PtrFromString(methodName)
 	pArgument, _ := syscall.UTF16PtrFromString(argument)
 	var pReturnVal uint16
-	hr = runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument, &pReturnVal)
+	hr := runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument, &pReturnVal)
 	err = checkOK(hr, "runtimeHost.ExecuteInDefaultAppDomain")
 	if err != nil {
 		return int16(pReturnVal), err
@@ -135,8 +134,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 		return
 	}
 	var isLoadable bool
-	hr := runtimeInfo.IsLoadable(&isLoadable)
-	err = checkOK(hr, "runtimeInfo.IsLoadable")
+	err = runtimeInfo.IsLoadable(&isLoadable)
 	if err != nil {
 		return
 	}
@@ -162,7 +160,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	}
 
 	var pEntryPointInfo uintptr
-	hr = assembly.GetEntryPoint(&pEntryPointInfo)
+	hr := assembly.GetEntryPoint(&pEntryPointInfo)
 	err = checkOK(hr, "assembly.GetEntryPoint")
 	if err != nil {
 		return

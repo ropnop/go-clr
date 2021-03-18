@@ -3,6 +3,7 @@
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 
@@ -83,23 +84,45 @@ func (obj *ICLRRuntimeInfo) GetInterface(rclsid *windows.GUID, riid *windows.GUI
 	return ret
 }
 
-func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() uintptr {
-	ret, _, _ := syscall.Syscall(
+// BindAsLegacyV2Runtime binds the current runtime for all legacy common language runtime (CLR) version 2 activation policy decisions.
+// HRESULT BindAsLegacyV2Runtime ();
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-bindaslegacyv2runtime-method
+func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() error {
+	debugPrint("Entering into iclrruntimeinfo.BindAsLegacyV2Runtime()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.BindAsLegacyV2Runtime,
 		1,
 		uintptr(unsafe.Pointer(obj)),
 		0,
 		0,
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the ICLRRuntimeInfo::BindAsLegacyV2Runtime method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the ICLRRuntimeInfo::BindAsLegacyV2Runtime method  returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }
 
-func (obj *ICLRRuntimeInfo) IsLoadable(pbLoadable *bool) uintptr {
-	ret, _, _ := syscall.Syscall(
+// IsLoadable indicates whether the runtime associated with this interface can be loaded into the current process,
+// taking into account other runtimes that might already be loaded into the process.
+// HRESULT IsLoadable(
+//   [out, retval] BOOL *pbLoadable);
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-isloadable-method
+func (obj *ICLRRuntimeInfo) IsLoadable(pbLoadable *bool) error {
+	debugPrint("Entering into iclrruntimeinfo.IsLoadable()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.IsLoadable,
 		2,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(pbLoadable)),
 		0)
-	return ret
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method  returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }

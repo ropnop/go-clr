@@ -55,17 +55,17 @@ func main() {
 	must(err)
 
 	var isLoadable bool
-	hr := runtimeInfo.IsLoadable(&isLoadable)
-	checkOK(hr, "runtimeInfo.IsLoadable")
+	err = runtimeInfo.IsLoadable(&isLoadable)
+	must(err)
 	if !isLoadable {
 		log.Fatal("[!] IsLoadable returned false. Bailing...")
 	}
 
-	hr = runtimeInfo.BindAsLegacyV2Runtime()
-	checkOK(hr, "runtimeInfo.BindAsLegacyV2Runtime")
+	err = runtimeInfo.BindAsLegacyV2Runtime()
+	must(err)
 
 	var pRuntimeHost uintptr
-	hr = runtimeInfo.GetInterface(&clr.CLSID_CorRuntimeHost, &clr.IID_ICorRuntimeHost, &pRuntimeHost)
+	hr := runtimeInfo.GetInterface(&clr.CLSID_CorRuntimeHost, &clr.IID_ICorRuntimeHost, &pRuntimeHost)
 	runtimeHost := clr.NewICORRuntimeHostFromPtr(pRuntimeHost)
 	hr = runtimeHost.Start()
 	checkOK(hr, "runtimeHost.Start")
