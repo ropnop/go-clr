@@ -87,30 +87,6 @@ func CreateSafeArray(rawBytes []byte) (*SafeArray, error) {
 	return safeArray, nil
 }
 
-// CreateEmptySafeArray is a wrapper function that takes an array type and a size and creates a safe array with corresponding
-// properties. It returns a pointer to that empty array.
-func CreateEmptySafeArray(arrayType uint16, size int) (unsafe.Pointer, error) {
-	debugPrint("Entering into safearray.CreateEmptySafeArray()...")
-	modOleAuto := syscall.MustLoadDLL("OleAut32.dll")
-	procSafeArrayCreate := modOleAuto.MustFindProc("SafeArrayCreate")
-
-	sab := SafeArrayBound{
-		cElements: uint32(size),
-		lLbound:   0,
-	}
-	vt := uint16(arrayType)
-	ret, _, err := procSafeArrayCreate.Call(
-		uintptr(vt),
-		uintptr(1),
-		uintptr(unsafe.Pointer(&sab)))
-
-	if err != syscall.Errno(0) {
-		return nil, err
-	}
-
-	return unsafe.Pointer(ret), nil
-}
-
 // SafeArrayCreate creates a new array descriptor, allocates and initializes the data for the array, and returns a pointer to the new array descriptor.
 // SAFEARRAY * SafeArrayCreate(
 //   VARTYPE        vt,
@@ -168,6 +144,7 @@ func SysAllocString(str string) (unsafe.Pointer, error) {
 		return nil, err
 	}
 	// TODO Return a pointer to a BSTR instead of an unsafe.Pointer
+	// Unable to avoid misuse of unsafe.Pointer because the Windows API call returns the safeArray pointer in the "ret" value. This is a go vet false positive
 	return unsafe.Pointer(ret), nil
 }
 

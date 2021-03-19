@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"syscall"
+	"unsafe"
 
 	clr "github.com/ropnop/go-clr"
 )
@@ -18,7 +19,7 @@ func must(err error) {
 
 func checkOK(hr uintptr, caller string) {
 	if hr != 0x0 {
-		log.Fatalf("%s returned 0x%08x", hr)
+		log.Fatalf("%s returned 0x%x", caller, hr)
 	}
 }
 
@@ -31,28 +32,26 @@ func main() {
 	must(err)
 	fmt.Printf("[+] Found installed runtimes: %s\n", installedRuntimes)
 	versionString := "v4.0.30319"
-	pwzVersion, _ := syscall.UTF16PtrFromString(versionString)
-	var pRuntimeInfo uintptr
+	pwzVersion, err := syscall.UTF16PtrFromString(versionString)
+	must(err)
 
-	hr := metahost.GetRuntime(pwzVersion, &clr.IID_ICLRRuntimeInfo, &pRuntimeInfo)
-	checkOK(hr, "metaHost.GetRuntime")
-	runtimeInfo := clr.NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
+	runtimeInfo, err := metahost.GetRuntime(pwzVersion, clr.IID_ICLRRuntimeInfo)
+	must(err)
 	fmt.Printf("[+] Using runtime: %s\n", versionString)
 
 	var isLoadable bool
-	hr = runtimeInfo.IsLoadable(&isLoadable)
-	checkOK(hr, "runtimeInfo.IsLoadable")
+	err = runtimeInfo.IsLoadable(&isLoadable)
+	must(err)
 	if !isLoadable {
 		log.Fatal("[!] IsLoadable returned false. Bailing...")
 	}
 
-	var pRuntimeHost uintptr
-	hr = runtimeInfo.GetInterface(&clr.CLSID_CLRRuntimeHost, &clr.IID_ICLRRuntimeHost, &pRuntimeHost)
-	checkOK(hr, "runtimeInfo.GetInterface")
-	runtimeHost := clr.NewICLRRuntimeHostFromPtr(pRuntimeHost)
+	var runtimeHost *clr.ICLRRuntimeHost
+	err = runtimeInfo.GetInterface(clr.CLSID_CLRRuntimeHost, clr.IID_ICLRRuntimeHost, unsafe.Pointer(&runtimeHost))
+	must(err)
 
-	hr = runtimeHost.Start()
-	checkOK(hr, "runtimeHost.Start")
+	err = runtimeHost.Start()
+	must(err)
 	fmt.Println("[+] Loaded CLR into this process")
 
 	fmt.Println("[+] Executing assembly...")
@@ -61,7 +60,7 @@ func main() {
 	pMethodName, _ := syscall.UTF16PtrFromString("SayHello")
 	pArgument, _ := syscall.UTF16PtrFromString("foobar")
 	var pReturnVal *uint16
-	hr = runtimeHost.ExecuteInDefaultAppDomain(
+	hr := runtimeHost.ExecuteInDefaultAppDomain(
 		pDLLPath,
 		pTypeName,
 		pMethodName,

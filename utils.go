@@ -77,7 +77,10 @@ func PrepareParameters(params []string) (*SafeArray, error) {
 		return nil, err
 	}
 	for i, p := range params {
-		bstr, _ := SysAllocString(p)
+		bstr, err := SysAllocString(p)
+		if err != nil {
+			return nil, err
+		}
 		SafeArrayPutElement(listStrSafeArrayPtr, int32(i), bstr)
 	}
 
