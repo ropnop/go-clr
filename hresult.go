@@ -1,6 +1,8 @@
 package clr
 
 const (
+	S_OK    = 0x00
+	S_FALSE = 0x01
 	// COR_E_SAFEARRAYRANKMISMATCH is SafeArrayRankMismatchException
 	COR_E_SAFEARRAYRANKMISMATCH uint32 = 0x80131538
 	// COR_E_BADIMAGEFORMAT is BadImageFormatException

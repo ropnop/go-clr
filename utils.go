@@ -14,8 +14,6 @@ import (
 	"golang.org/x/text/transform"
 )
 
-const S_OK = 0x0
-
 var Debug = false
 
 func checkOK(hr uintptr, caller string) error {

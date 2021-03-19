@@ -52,6 +52,7 @@ func (obj *ICLRRuntimeInfo) AddRef() uintptr {
 }
 
 func (obj *ICLRRuntimeInfo) Release() uintptr {
+	debugPrint("Entering into iclrruntimeinfo.Release()...")
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.Release,
 		1,
@@ -61,14 +62,52 @@ func (obj *ICLRRuntimeInfo) Release() uintptr {
 	return ret
 }
 
-func (obj *ICLRRuntimeInfo) GetVersionString(pcchBuffer *uint16, pVersionstringSize *uint32) uintptr {
-	ret, _, _ := syscall.Syscall(
+// GetVersionString gets common language runtime (CLR) version information associated with a given ICLRRuntimeInfo interface.
+// HRESULT GetVersionString(
+//   [out, size_is(*pcchBuffer)] LPWSTR pwzBuffer,
+//   [in, out]  DWORD *pcchBuffer);
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-getversionstring-method
+func (obj *ICLRRuntimeInfo) GetVersionString() (version string, err error) {
+	debugPrint("Entering into iclrruntimeinfo.GetVersion()...")
+	// [in, out] Specifies the size of pwzBuffer to avoid buffer overruns. If pwzBuffer is null, pchBuffer returns the required size of pwzBuffer to allow preallocation.
+	var pchBuffer uint32
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.GetVersionString,
 		3,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pcchBuffer)),
-		uintptr(unsafe.Pointer(&pVersionstringSize)))
-	return ret
+		0,
+		uintptr(unsafe.Pointer(&pchBuffer)),
+	)
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("there was an error calling the ICLRRuntimeInfo::GetVersionString method during preallocation:\r\n%s", err)
+		return
+	}
+	// 0x8007007a = The data area passed to a system call is too small, expected when passing a nil buffer for preallocation
+	if hr != S_OK && hr != 0x8007007a {
+		err = fmt.Errorf("the ICLRRuntimeInfo::GetVersionString method (preallocation) returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+
+	pwzBuffer := make([]uint16, 20)
+
+	hr, _, err = syscall.Syscall(
+		obj.vtbl.GetVersionString,
+		3,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&pwzBuffer[0])),
+		uintptr(unsafe.Pointer(&pchBuffer)),
+	)
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("there was an error calling the ICLRRuntimeInfo::GetVersionString method:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICLRRuntimeInfo::GetVersionString method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	version = syscall.UTF16ToString(pwzBuffer)
+	return
 }
 
 // GetInterface loads the CLR into the current process and returns runtime interface pointers,

@@ -53,7 +53,7 @@ func (obj *IEnumUnknown) Release() uintptr {
 //   ULONG    *pceltFetched
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/objidl/nf-objidl-ienumunknown-next
-func (obj *IEnumUnknown) Next(celt uint32, pEnumRuntime unsafe.Pointer, pceltFetched *uint32) (err error) {
+func (obj *IEnumUnknown) Next(celt uint32, pEnumRuntime unsafe.Pointer, pceltFetched *uint32) (hresult int, err error) {
 	debugPrint("Entering into ienumunknown.Next()...")
 	hr, _, err := syscall.Syscall6(
 		obj.vtbl.Next,
@@ -69,10 +69,11 @@ func (obj *IEnumUnknown) Next(celt uint32, pEnumRuntime unsafe.Pointer, pceltFet
 		err = fmt.Errorf("there was an error calling the IEnumUnknown::Next method:\r\n%s", err)
 		return
 	}
-	if hr != S_OK {
+	if hr != S_OK && hr != S_FALSE {
 		err = fmt.Errorf("the IEnumUnknown::Next method method returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
 	err = nil
+	hresult = int(hr)
 	return
 }

@@ -14,31 +14,34 @@ import (
 // GetInstallRuntimes is a wrapper function that returns an array of installed runtimes. Requires an existing ICLRMetaHost
 func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	var runtimes []string
-	installedRuntimes, err := metahost.EnumerateInstalledRuntimes()
+	enumICLRRuntimeInfo, err := metahost.EnumerateInstalledRuntimes()
 	if err != nil {
 		return runtimes, err
 	}
 
-	var fetched = uint32(0)
-	var versionString string
-	versionStringBytes := make([]uint16, 20)
-	versionStringSize := uint32(len(versionStringBytes))
-	var runtimeInfo *ICLRRuntimeInfo
-	for {
-		err := installedRuntimes.Next(1, unsafe.Pointer(runtimeInfo), &fetched)
+	var hr int
+	for hr != S_FALSE {
+		var runtimeInfo *ICLRRuntimeInfo
+		var fetched = uint32(0)
+		hr, err = enumICLRRuntimeInfo.Next(1, unsafe.Pointer(&runtimeInfo), &fetched)
 		if err != nil {
+			return runtimes, fmt.Errorf("InstalledRuntimes Next Error:\r\n%s\n", err)
+		}
+		if hr == S_FALSE {
 			break
 		}
-		if ret := runtimeInfo.GetVersionString(&versionStringBytes[0], &versionStringSize); ret != S_OK {
-			return runtimes, fmt.Errorf("GetVersionString returned 0x%08x", ret)
+		// Only release if an interface pointer was returned
+		runtimeInfo.Release()
+
+		version, err := runtimeInfo.GetVersionString()
+		if err != nil {
+			return runtimes, err
 		}
-		versionString = syscall.UTF16ToString(versionStringBytes)
-		runtimes = append(runtimes, versionString)
+		runtimes = append(runtimes, version)
 	}
 	if len(runtimes) == 0 {
 		return runtimes, fmt.Errorf("Could not find any installed runtimes")
 	}
-	runtimeInfo.Release()
 	return runtimes, err
 }
 

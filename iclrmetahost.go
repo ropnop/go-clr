@@ -101,15 +101,15 @@ func (obj *ICLRMetaHost) EnumerateInstalledRuntimes() (ppEnumerator *IEnumUnknow
 		obj.vtbl.EnumerateInstalledRuntimes,
 		2,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(ppEnumerator)),
+		uintptr(unsafe.Pointer(&ppEnumerator)),
 		0,
 	)
 	if err != syscall.Errno(0) {
-		err = fmt.Errorf("there was an error calling the ICLRMetaHost::GetRuntime method:\r\n%s", err)
+		err = fmt.Errorf("there was an error calling the ICLRMetaHost::EnumerateInstalledRuntimes method:\r\n%s", err)
 		return
 	}
 	if hr != S_OK {
-		err = fmt.Errorf("the ICLRMetaHost::GetRuntime method returned a non-zero HRESULT: 0x%x", hr)
+		err = fmt.Errorf("the ICLRMetaHost::EnumerateInstalledRuntimes method returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
 	err = nil
