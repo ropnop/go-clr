@@ -116,6 +116,7 @@ func (obj *ICORRuntimeHost) GetDefaultDomain() (IUnknown *IUnknown, err error) {
 	}
 	if hr != S_OK {
 		err = fmt.Errorf("the ICORRuntimeHost::GetDefaultDomain method method returned a non-zero HRESULT: 0x%x", hr)
+		return
 	}
 	err = nil
 	return

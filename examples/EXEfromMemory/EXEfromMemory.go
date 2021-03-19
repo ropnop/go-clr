@@ -71,15 +71,12 @@ func main() {
 	must(err)
 	fmt.Println("[+] Loaded CLR into this process")
 
-	var pAppDomain uintptr
-	//var pIUnknown uintptr
 	iu, err := runtimeHost.GetDefaultDomain()
 	must(err)
 
-	//iu := clr.NewIUnknownFromPtr(uintptr(unsafe.Pointer(appDomain2)))
-	hr := iu.QueryInterface(&clr.IID_AppDomain, &pAppDomain)
-	checkOK(hr, "iu.QueryInterface")
-	appDomain := clr.NewAppDomainFromPtr(pAppDomain)
+	var appDomain *clr.AppDomain
+	err = iu.QueryInterface(clr.IID_AppDomain, unsafe.Pointer(&appDomain))
+	must(err)
 	fmt.Println("[+] Got default AppDomain")
 
 	safeArray, err := clr.CreateSafeArray(exebytes)
@@ -93,7 +90,7 @@ func main() {
 	fmt.Printf("[+] Executable loaded into memory at %p\n", assembly)
 
 	var pEntryPointInfo uintptr
-	hr = assembly.GetEntryPoint(&pEntryPointInfo)
+	hr := assembly.GetEntryPoint(&pEntryPointInfo)
 	checkOK(hr, "assembly.GetEntryPoint")
 	fmt.Printf("[+] Executable entrypoint found at 0x%x\n", pEntryPointInfo)
 	methodInfo := clr.NewMethodInfoFromPtr(pEntryPointInfo)
