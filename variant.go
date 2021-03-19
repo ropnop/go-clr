@@ -2,8 +2,6 @@
 
 package clr
 
-import "unsafe"
-
 const (
 	VT_EMPTY uint16 = 0x0000
 	VT_NULL  uint16 = 0x0001
@@ -33,8 +31,4 @@ type Variant struct {
 	wReserved3 uint16
 	Val        uintptr
 	_          [8]byte
-}
-
-func NewVariantFromPtr(ppv uintptr) *Variant {
-	return (*Variant)(unsafe.Pointer(ppv))
 }
