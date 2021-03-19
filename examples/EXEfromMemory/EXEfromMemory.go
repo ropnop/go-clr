@@ -93,41 +93,32 @@ func main() {
 	must(err)
 	fmt.Printf("[+] Executable entrypoint found at 0x%x\n", uintptr(unsafe.Pointer(methodInfo)))
 
-	var paramPtr uintptr
+	var paramSafeArray *clr.SafeArray
 	methodSignature, err := methodInfo.GetString()
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("[+] Checking if the assembly requires arguments\n")
+	fmt.Println("[+] Checking if the assembly requires arguments...")
 	if !strings.Contains(methodSignature, "Void Main()") {
 		if len(params) < 1 {
 			log.Fatal("the assembly requires arguments but none were provided\nUsage: EXEfromMemory.exe <exe_file> <exe_args>")
 		}
-		if paramPtr, err = clr.PrepareParameters(params); err != nil {
+		if paramSafeArray, err = clr.PrepareParameters(params); err != nil {
 			log.Fatal(fmt.Sprintf("there was an error preparing the assembly arguments:\r\n%s", err))
 		}
 	}
 
-	var pRetCode uintptr
 	nullVariant := clr.Variant{
 		VT:  1,
 		Val: uintptr(0),
 	}
 	fmt.Println("[+] Invoking...")
-	hr := methodInfo.Invoke_3(
-		nullVariant,
-		paramPtr,
-		&pRetCode)
-
-	fmt.Println("-------")
-
-	checkOK(hr, "methodInfo.Invoke_3")
-	fmt.Printf("[+] Executable returned code %d\n", pRetCode)
+	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
+	must(err)
 
 	appDomain.Release()
 	runtimeHost.Release()
 	runtimeInfo.Release()
 	metaHost.Release()
-
 }

@@ -164,28 +164,23 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 		return
 	}
 
-	var paramPtr uintptr
+	var paramSafeArray *SafeArray
 	methodSignature, err := methodInfo.GetString()
 	if err != nil {
 		return
 	}
 
 	if expectsParams(methodSignature) {
-		if paramPtr, err = PrepareParameters(params); err != nil {
+		if paramSafeArray, err = PrepareParameters(params); err != nil {
 			return
 		}
 	}
 
-	var pRetCode uintptr
 	nullVariant := Variant{
 		VT:  1,
 		Val: uintptr(0),
 	}
-	hr := methodInfo.Invoke_3(
-		nullVariant,
-		paramPtr,
-		&pRetCode)
-	err = checkOK(hr, "methodInfo.Invoke_3")
+	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
 	if err != nil {
 		return
 	}
@@ -193,42 +188,5 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	runtimeHost.Release()
 	runtimeInfo.Release()
 	metahost.Release()
-	return int32(pRetCode), nil
-
-}
-
-// PrepareParameters creates a safe array of strings (arguments) nested inside a Variant object, which is itself
-// appended to the final safe array
-func PrepareParameters(params []string) (uintptr, error) {
-	sab := SafeArrayBound{
-		cElements: uint32(len(params)),
-		lLbound:   0,
-	}
-	listStrSafeArrayPtr, err := SafeArrayCreate(VT_BSTR, 1, &sab) // VT_BSTR
-	if err != nil {
-		return 0, err
-	}
-	for i, p := range params {
-		bstr, _ := SysAllocString(p)
-		SafeArrayPutElement(listStrSafeArrayPtr, int32(i), bstr)
-	}
-
-	paramVariant := Variant{
-		VT:  VT_BSTR | VT_ARRAY, // VT_BSTR | VT_ARRAY
-		Val: uintptr(unsafe.Pointer(listStrSafeArrayPtr)),
-	}
-
-	sab2 := SafeArrayBound{
-		cElements: uint32(1),
-		lLbound:   0,
-	}
-	paramsSafeArrayPtr, err := SafeArrayCreate(VT_VARIANT, 1, &sab2) // VT_VARIANT
-	if err != nil {
-		return 0, err
-	}
-	err = SafeArrayPutElement(paramsSafeArrayPtr, int32(0), unsafe.Pointer(&paramVariant))
-	if err != nil {
-		return 0, err
-	}
-	return uintptr(unsafe.Pointer(paramsSafeArrayPtr)), nil
+	return 0, nil
 }

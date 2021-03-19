@@ -100,19 +100,39 @@ func (obj *MethodInfo) GetType(pRetVal *uintptr) uintptr {
 	return ret
 }
 
-func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters uintptr, pRetVal *uintptr) uintptr {
+// Invoke_3 Invokes the method or constructor reflected by this MethodInfo instance.
+//      virtual HRESULT __stdcall Invoke_3 (
+//      /*[in]*/ VARIANT obj,
+//      /*[in]*/ SAFEARRAY * parameters,
+//      /*[out,retval]*/ VARIANT * pRetVal ) = 0;
+// https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase.invoke?view=net-5.0
+func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err error) {
 	debugPrint("Entering into methodinfo.Invoke_3()...")
-	ret, _, _ := syscall.Syscall6(
+	var pRetVal *Variant
+	hr, _, err := syscall.Syscall6(
 		obj.vtbl.Invoke_3,
 		4,
 		uintptr(unsafe.Pointer(obj)),
 		uintptr(unsafe.Pointer(&variantObj)),
-		parameters,
+		uintptr(unsafe.Pointer(parameters)),
 		uintptr(unsafe.Pointer(pRetVal)),
 		0,
 		0,
 	)
-	return ret
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned an error:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	if pRetVal != nil {
+		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero pRetVal: %+v", pRetVal)
+		return
+	}
+	err = nil
+	return
 }
 
 // GetString returns a string that represents the current object
