@@ -70,10 +70,6 @@ type AssemblyVtbl struct {
 	get_GlobalAssemblyCache     uintptr
 }
 
-func NewAssemblyFromPtr(ppv uintptr) *Assembly {
-	return (*Assembly)(unsafe.Pointer(ppv))
-}
-
 func (obj *Assembly) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
