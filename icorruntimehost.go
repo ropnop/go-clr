@@ -87,7 +87,7 @@ func (obj *ICORRuntimeHost) Start() error {
 	if err != syscall.Errno(0) {
 		// The system could not find the environment option that was entered.
 		// TODO Why is this error message returned?
-		fmt.Printf("the ICORRuntimeHost::Start method returned an error:\r\n%s\n", err)
+		debugPrint(fmt.Sprintf("the ICORRuntimeHost::Start method returned an error:\r\n%s", err))
 	}
 	if hr != S_OK {
 		return fmt.Errorf("the ICORRuntimeHost::Start method method returned a non-zero HRESULT: 0x%x", hr)
@@ -95,12 +95,28 @@ func (obj *ICORRuntimeHost) Start() error {
 	return nil
 }
 
-func (obj *ICORRuntimeHost) GetDefaultDomain(pAppDomain *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall(
+// GetDefaultDomain gets an interface pointer of type System._AppDomain that represents the default domain for the current process.
+// HRESULT GetDefaultDomain (
+//   [out] IUnknown** pAppDomain
+// );
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-getdefaultdomain-method
+func (obj *ICORRuntimeHost) GetDefaultDomain() (IUnknown *IUnknown, err error) {
+	debugPrint("Entering into icorruntimehost.GetDefaultDomain()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.GetDefaultDomain,
 		2,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pAppDomain)),
-		0)
-	return ret
+		uintptr(unsafe.Pointer(&IUnknown)),
+		0,
+	)
+	if err != syscall.Errno(0) {
+		// The specified procedure could not be found.
+		// TODO Why is this error message returned?
+		debugPrint(fmt.Sprintf("the ICORRuntimeHost::GetDefaultDomain method returned an error:\r\n%s", err))
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICORRuntimeHost::GetDefaultDomain method method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	err = nil
+	return
 }

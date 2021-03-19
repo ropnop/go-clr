@@ -72,11 +72,12 @@ func main() {
 	fmt.Println("[+] Loaded CLR into this process")
 
 	var pAppDomain uintptr
-	var pIUnknown uintptr
-	hr := runtimeHost.GetDefaultDomain(&pIUnknown)
-	checkOK(hr, "runtimeHost.GetDefaultDomain")
-	iu := clr.NewIUnknownFromPtr(pIUnknown)
-	hr = iu.QueryInterface(&clr.IID_AppDomain, &pAppDomain)
+	//var pIUnknown uintptr
+	iu, err := runtimeHost.GetDefaultDomain()
+	must(err)
+
+	//iu := clr.NewIUnknownFromPtr(uintptr(unsafe.Pointer(appDomain2)))
+	hr := iu.QueryInterface(&clr.IID_AppDomain, &pAppDomain)
 	checkOK(hr, "iu.QueryInterface")
 	appDomain := clr.NewAppDomainFromPtr(pAppDomain)
 	fmt.Println("[+] Got default AppDomain")
