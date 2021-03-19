@@ -22,10 +22,6 @@ type IEnumUnknownVtbl struct {
 	Clone          uintptr
 }
 
-func NewIEnumUnknownFromPtr(ppv uintptr) *IEnumUnknown {
-	return (*IEnumUnknown)(unsafe.Pointer(ppv))
-}
-
 func (obj *IEnumUnknown) AddRef() uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.AddRef,
