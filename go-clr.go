@@ -159,13 +159,10 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 		return
 	}
 
-	var pEntryPointInfo uintptr
-	hr := assembly.GetEntryPoint(&pEntryPointInfo)
-	err = checkOK(hr, "assembly.GetEntryPoint")
+	methodInfo, err := assembly.GetEntryPoint()
 	if err != nil {
 		return
 	}
-	methodInfo := NewMethodInfoFromPtr(pEntryPointInfo)
 
 	var methodSignaturePtr, paramPtr uintptr
 	err = methodInfo.GetString(&methodSignaturePtr)
@@ -185,7 +182,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 		VT:  1,
 		Val: uintptr(0),
 	}
-	hr = methodInfo.Invoke_3(
+	hr := methodInfo.Invoke_3(
 		nullVariant,
 		paramPtr,
 		&pRetCode)

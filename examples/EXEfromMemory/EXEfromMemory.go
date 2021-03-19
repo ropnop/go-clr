@@ -89,11 +89,9 @@ func main() {
 	fmt.Printf("[+] Loaded %d bytes into memory from %s\n", len(exebytes), filename)
 	fmt.Printf("[+] Executable loaded into memory at %p\n", assembly)
 
-	var pEntryPointInfo uintptr
-	hr := assembly.GetEntryPoint(&pEntryPointInfo)
-	checkOK(hr, "assembly.GetEntryPoint")
-	fmt.Printf("[+] Executable entrypoint found at 0x%x\n", pEntryPointInfo)
-	methodInfo := clr.NewMethodInfoFromPtr(pEntryPointInfo)
+	methodInfo, err := assembly.GetEntryPoint()
+	must(err)
+	fmt.Printf("[+] Executable entrypoint found at 0x%x\n", uintptr(unsafe.Pointer(methodInfo)))
 
 	var methodSignaturePtr, paramPtr uintptr
 	err = methodInfo.GetString(&methodSignaturePtr)
@@ -117,7 +115,7 @@ func main() {
 		Val: uintptr(0),
 	}
 	fmt.Println("[+] Invoking...")
-	hr = methodInfo.Invoke_3(
+	hr := methodInfo.Invoke_3(
 		nullVariant,
 		paramPtr,
 		&pRetCode)

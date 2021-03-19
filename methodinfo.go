@@ -59,10 +59,6 @@ type MethodInfoVtbl struct {
 	GetBaseDefinition              uintptr
 }
 
-func NewMethodInfoFromPtr(ppv uintptr) *MethodInfo {
-	return (*MethodInfo)(unsafe.Pointer(ppv))
-}
-
 func (obj *MethodInfo) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
