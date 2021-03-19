@@ -71,17 +71,34 @@ func (obj *ICLRRuntimeInfo) GetVersionString(pcchBuffer *uint16, pVersionstringS
 	return ret
 }
 
-func (obj *ICLRRuntimeInfo) GetInterface(rclsid *windows.GUID, riid *windows.GUID, ppUnk *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall6(
+// GetInterface loads the CLR into the current process and returns runtime interface pointers,
+// such as ICLRRuntimeHost, ICLRStrongName, and IMetaDataDispenserEx.
+// HRESULT GetInterface(
+//   [in]  REFCLSID rclsid,
+//   [in]  REFIID   riid,
+//   [out, iid_is(riid), retval] LPVOID *ppUnk); unsafe pointer of a pointer to an object pointer
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-getinterface-method
+func (obj *ICLRRuntimeInfo) GetInterface(rclsid windows.GUID, riid windows.GUID, ppUnk unsafe.Pointer) error {
+	debugPrint("Entering into iclrruntimeinfo.GetInterface()...")
+	hr, _, err := syscall.Syscall6(
 		obj.vtbl.GetInterface,
 		4,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(rclsid)),
-		uintptr(unsafe.Pointer(riid)),
-		uintptr(unsafe.Pointer(ppUnk)),
+		uintptr(unsafe.Pointer(&rclsid)),
+		uintptr(unsafe.Pointer(&riid)),
+		uintptr(ppUnk),
 		0,
-		0)
-	return ret
+		0,
+	)
+	// The syscall returns "The requested lookup key was not found in any active activation context." in the error position
+	// TODO Why is this error message returned?
+	if err.Error() != "The requested lookup key was not found in any active activation context." {
+		return fmt.Errorf("the ICLRRuntimeInfo::GetInterface method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the ICLRRuntimeInfo::GetInterface method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }
 
 // BindAsLegacyV2Runtime binds the current runtime for all legacy common language runtime (CLR) version 2 activation policy decisions.
@@ -100,7 +117,7 @@ func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() error {
 		return fmt.Errorf("the ICLRRuntimeInfo::BindAsLegacyV2Runtime method returned an error:\r\n%s", err)
 	}
 	if hr != S_OK {
-		return fmt.Errorf("the ICLRRuntimeInfo::BindAsLegacyV2Runtime method  returned a non-zero HRESULT: 0x%x", hr)
+		return fmt.Errorf("the ICLRRuntimeInfo::BindAsLegacyV2Runtime method returned a non-zero HRESULT: 0x%x", hr)
 	}
 	return nil
 }

@@ -64,16 +64,16 @@ func main() {
 	err = runtimeInfo.BindAsLegacyV2Runtime()
 	must(err)
 
-	var pRuntimeHost uintptr
-	hr := runtimeInfo.GetInterface(&clr.CLSID_CorRuntimeHost, &clr.IID_ICorRuntimeHost, &pRuntimeHost)
-	runtimeHost := clr.NewICORRuntimeHostFromPtr(pRuntimeHost)
-	hr = runtimeHost.Start()
-	checkOK(hr, "runtimeHost.Start")
+	var runtimeHost *clr.ICORRuntimeHost
+	err = runtimeInfo.GetInterface(clr.CLSID_CorRuntimeHost, clr.IID_ICorRuntimeHost, unsafe.Pointer(&runtimeHost))
+	must(err)
+	err = runtimeHost.Start()
+	must(err)
 	fmt.Println("[+] Loaded CLR into this process")
 
 	var pAppDomain uintptr
 	var pIUnknown uintptr
-	hr = runtimeHost.GetDefaultDomain(&pIUnknown)
+	hr := runtimeHost.GetDefaultDomain(&pIUnknown)
 	checkOK(hr, "runtimeHost.GetDefaultDomain")
 	iu := clr.NewIUnknownFromPtr(pIUnknown)
 	hr = iu.QueryInterface(&clr.IID_AppDomain, &pAppDomain)

@@ -3,6 +3,7 @@
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 )
@@ -40,20 +41,15 @@ type ICORRuntimeHostVtbl struct {
 // and loads it into the current process. This is the "deprecated" API, but the only way currently to load an assembly
 // from memory (afaict)
 func GetICORRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICORRuntimeHost, error) {
-	var pRuntimeHost uintptr
-	hr := runtimeInfo.GetInterface(&CLSID_CorRuntimeHost, &IID_ICorRuntimeHost, &pRuntimeHost)
-	err := checkOK(hr, "runtimeInfo.GetInterface")
+	debugPrint("Entering into icorruntimehost.GetICORRuntimeHost()...")
+	var runtimeHost *ICORRuntimeHost
+	err := runtimeInfo.GetInterface(CLSID_CorRuntimeHost, IID_ICorRuntimeHost, unsafe.Pointer(&runtimeHost))
 	if err != nil {
 		return nil, err
 	}
-	runtimeHost := NewICORRuntimeHostFromPtr(pRuntimeHost)
-	hr = runtimeHost.Start()
-	err = checkOK(hr, "runtimeHost.Start")
-	return runtimeHost, err
-}
 
-func NewICORRuntimeHostFromPtr(ppv uintptr) *ICORRuntimeHost {
-	return (*ICORRuntimeHost)(unsafe.Pointer(ppv))
+	err = runtimeHost.Start()
+	return runtimeHost, err
 }
 
 func (obj *ICORRuntimeHost) AddRef() uintptr {
@@ -76,14 +72,27 @@ func (obj *ICORRuntimeHost) Release() uintptr {
 	return ret
 }
 
-func (obj *ICORRuntimeHost) Start() uintptr {
-	ret, _, _ := syscall.Syscall(
+// Start starts the common language runtime (CLR).
+// HRESULT Start ();
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-start-method
+func (obj *ICORRuntimeHost) Start() error {
+	debugPrint("Entering into icorruntimehost.Start()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.Start,
 		1,
 		uintptr(unsafe.Pointer(obj)),
 		0,
-		0)
-	return ret
+		0,
+	)
+	if err != syscall.Errno(0) {
+		// The system could not find the environment option that was entered.
+		// TODO Why is this error message returned?
+		fmt.Printf("the ICORRuntimeHost::Start method returned an error:\r\n%s\n", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the ICORRuntimeHost::Start method method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }
 
 func (obj *ICORRuntimeHost) GetDefaultDomain(pAppDomain *uintptr) uintptr {

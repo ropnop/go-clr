@@ -3,6 +3,7 @@
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 )
@@ -25,23 +26,19 @@ type ICLRRuntimeHostVtbl struct {
 	ExecuteApplication        uintptr
 	ExecuteInDefaultAppDomain uintptr
 }
+
 // GetICLRRuntimeHost is a wrapper function that takes an ICLRRuntimeInfo object and
 // returns an ICLRRuntimeHost and loads it into the current process
 func GetICLRRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICLRRuntimeHost, error) {
-	var pRuntimeHost uintptr
-	hr := runtimeInfo.GetInterface(&CLSID_CLRRuntimeHost, &IID_ICLRRuntimeHost, &pRuntimeHost)
-	err := checkOK(hr, "runtimeInfo.GetInterface")
+	debugPrint("Entering into iclrruntimehost.GetICLRRuntimeHost()...")
+	var runtimeHost *ICLRRuntimeHost
+	err := runtimeInfo.GetInterface(CLSID_CLRRuntimeHost, IID_ICLRRuntimeHost, unsafe.Pointer(&runtimeHost))
 	if err != nil {
 		return nil, err
 	}
-	runtimeHost := NewICLRRuntimeHostFromPtr(pRuntimeHost)
-	hr = runtimeHost.Start()
-	err = checkOK(hr, "runtimeHost.Start")
-	return runtimeHost, err
-}
 
-func NewICLRRuntimeHostFromPtr(ppv uintptr) *ICLRRuntimeHost {
-	return (*ICLRRuntimeHost)(unsafe.Pointer(ppv))
+	err = runtimeHost.Start()
+	return runtimeHost, err
 }
 
 func (obj *ICLRRuntimeHost) AddRef() uintptr {
@@ -64,14 +61,25 @@ func (obj *ICLRRuntimeHost) Release() uintptr {
 	return ret
 }
 
-func (obj *ICLRRuntimeHost) Start() uintptr {
-	ret, _, _ := syscall.Syscall(
+// Start Initializes the common language runtime (CLR) into a process.
+// HRESULT Start();
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimehost-start-method
+func (obj *ICLRRuntimeHost) Start() error {
+	debugPrint("Entering into iclrruntimehost.Start()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.Start,
 		1,
 		uintptr(unsafe.Pointer(obj)),
 		0,
-		0)
-	return ret
+		0,
+	)
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the ICLRRuntimeHost::Start method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the ICLRRuntimeHost::Start method method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }
 
 func (obj *ICLRRuntimeHost) ExecuteInDefaultAppDomain(pwzAssemblyPath, pwzTypeName, pwzMethodName, pwzArgument, pReturnValue *uint16) uintptr {
