@@ -98,10 +98,6 @@ func GetAppDomain(runtimeHost *ICORRuntimeHost) (appDomain *AppDomain, err error
 	return
 }
 
-func NewAppDomainFromPtr(ppv uintptr) *AppDomain {
-	return (*AppDomain)(unsafe.Pointer(ppv))
-}
-
 func (obj *AppDomain) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
