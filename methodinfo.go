@@ -3,6 +3,7 @@
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 
@@ -100,7 +101,7 @@ func (obj *MethodInfo) GetType(pRetVal *uintptr) uintptr {
 }
 
 func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters uintptr, pRetVal *uintptr) uintptr {
-	debugPrint("Entering into appdomain.Invoke_3()...")
+	debugPrint("Entering into methodinfo.Invoke_3()...")
 	ret, _, _ := syscall.Syscall6(
 		obj.vtbl.Invoke_3,
 		4,
@@ -114,14 +115,28 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters uintptr, pRetVal 
 	return ret
 }
 
-// GetString returns a string version of the method's signature
-func (obj *MethodInfo) GetString(addr *uintptr) error {
-	ret, _, _ := syscall.Syscall(
+// GetString returns a string that represents the current object
+// a string version of the method's signature
+// public virtual string ToString ();
+func (obj *MethodInfo) GetString() (str string, err error) {
+	debugPrint("Entering into methodinfo.GetString()...")
+	var object *string
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.get_ToString,
 		2,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(addr)),
+		uintptr(unsafe.Pointer(&object)),
 		0,
 	)
-	return checkOK(ret, "get_ToString")
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the MethodInfo::ToString method returned an error:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the Assembly::ToString method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	str = ReadUnicodeStr(unsafe.Pointer(object))
+	return
 }

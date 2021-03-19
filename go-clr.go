@@ -164,12 +164,11 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 		return
 	}
 
-	var methodSignaturePtr, paramPtr uintptr
-	err = methodInfo.GetString(&methodSignaturePtr)
+	var paramPtr uintptr
+	methodSignature, err := methodInfo.GetString()
 	if err != nil {
 		return
 	}
-	methodSignature := ReadUnicodeStr(unsafe.Pointer(methodSignaturePtr))
 
 	if expectsParams(methodSignature) {
 		if paramPtr, err = PrepareParameters(params); err != nil {

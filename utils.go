@@ -16,7 +16,7 @@ import (
 
 const S_OK = 0x0
 
-var Debug = false
+var Debug = true
 
 func checkOK(hr uintptr, caller string) error {
 	if hr != S_OK {
@@ -45,6 +45,7 @@ func expectsParams(input string) bool {
 }
 
 func ReadUnicodeStr(ptr unsafe.Pointer) string {
+	debugPrint("Entering into utils.ReadUnicodeStr()...")
 	var byteVal uint16
 	out := make([]uint16, 0)
 	for i := 0; ; i++ {

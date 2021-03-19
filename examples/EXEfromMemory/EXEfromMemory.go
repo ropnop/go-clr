@@ -93,12 +93,12 @@ func main() {
 	must(err)
 	fmt.Printf("[+] Executable entrypoint found at 0x%x\n", uintptr(unsafe.Pointer(methodInfo)))
 
-	var methodSignaturePtr, paramPtr uintptr
-	err = methodInfo.GetString(&methodSignaturePtr)
+	var paramPtr uintptr
+	methodSignature, err := methodInfo.GetString()
 	if err != nil {
 		return
 	}
-	methodSignature := clr.ReadUnicodeStr(unsafe.Pointer(methodSignaturePtr))
+
 	fmt.Printf("[+] Checking if the assembly requires arguments\n")
 	if !strings.Contains(methodSignature, "Void Main()") {
 		if len(params) < 1 {
