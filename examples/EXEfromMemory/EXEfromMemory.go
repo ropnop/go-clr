@@ -54,8 +54,7 @@ func main() {
 	runtimeInfo, err := metaHost.GetRuntime(pwzVersion, clr.IID_ICLRRuntimeInfo)
 	must(err)
 
-	var isLoadable bool
-	err = runtimeInfo.IsLoadable(&isLoadable)
+	isLoadable, err := runtimeInfo.IsLoadable()
 	must(err)
 	if !isLoadable {
 		log.Fatal("[!] IsLoadable returned false. Bailing...")

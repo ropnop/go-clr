@@ -14,22 +14,46 @@ type ICLRRuntimeInfo struct {
 	vtbl *ICLRRuntimeInfoVtbl
 }
 
+// ICLRRuntimeInfoVtbl Provides methods that return information about a specific common language runtime (CLR),
+// including version, directory, and load status. This interface also provides runtime-specific functionality
+// without initializing the runtime. It includes the runtime-relative LoadLibrary method, the runtime
+// module-specific GetProcAddress method, and runtime-provided interfaces through the GetInterface method.
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-interface
 type ICLRRuntimeInfoVtbl struct {
-	QueryInterface         uintptr
-	AddRef                 uintptr
-	Release                uintptr
-	GetVersionString       uintptr
-	GetRuntimeDirectory    uintptr
-	IsLoaded               uintptr
-	LoadErrorString        uintptr
-	LoadLibrary            uintptr
-	GetProcAddress         uintptr
-	GetInterface           uintptr
-	IsLoadable             uintptr
+	QueryInterface uintptr
+	AddRef         uintptr
+	Release        uintptr
+	// GetVersionString Gets common language runtime (CLR) version information associated with a given
+	// ICLRRuntimeInfo interface. This method supersedes the GetRequestedRuntimeInfo and GetRequestedRuntimeVersion methods.
+	GetVersionString uintptr
+	// GetRuntimeDirectory Gets the installation directory of the CLR associated with this interface.
+	// This method supersedes the GetCORSystemDirectory method.
+	GetRuntimeDirectory uintptr
+	// IsLoaded Indicates whether the CLR associated with the ICLRRuntimeInfo interface is loaded into a process.
+	IsLoaded uintptr
+	// LoadErrorString Translates an HRESULT value into an appropriate error message for the specified culture.
+	// This method supersedes the LoadStringRC and LoadStringRCEx methods.
+	LoadErrorString uintptr
+	// LoadLibrary Loads a library from the framework directory of the CLR represented by an ICLRRuntimeInfo interface.
+	// This method supersedes the LoadLibraryShim method.
+	LoadLibrary uintptr
+	// GetProcAddress Gets the address of a specified function that was exported from the CLR associated with
+	// this interface. This method supersedes the GetRealProcAddress method.
+	GetProcAddress uintptr
+	// GetInterface Loads the CLR into the current process and returns runtime interface pointers,
+	// such as ICLRRuntimeHost, ICLRStrongName and IMetaDataDispenser. This method supersedes all the CorBindTo* functions.
+	GetInterface uintptr
+	// IsLoadable Indicates whether the runtime associated with this interface can be loaded into the current
+	// process, taking into account other runtimes that might already be loaded into the process.
+	IsLoadable uintptr
+	// SetDefaultStartupFlags Sets the CLR startup flags and host configuration file.
 	SetDefaultStartupFlags uintptr
+	// GetDefaultStartupFlags Gets the CLR startup flags and host configuration file.
 	GetDefaultStartupFlags uintptr
-	BindAsLegacyV2Runtime  uintptr
-	IsStarted              uintptr
+	// BindAsLegacyV2Runtime Binds this runtime for all legacy CLR version 2 activation policy decisions.
+	BindAsLegacyV2Runtime uintptr
+	// IsStarted Indicates whether the CLR that is associated with the ICLRRuntimeInfo interface has been started.
+	IsStarted uintptr
 }
 
 // GetRuntimeInfo is a wrapper function to return an ICLRRuntimeInfo from a standard version string
@@ -166,19 +190,22 @@ func (obj *ICLRRuntimeInfo) BindAsLegacyV2Runtime() error {
 // HRESULT IsLoadable(
 //   [out, retval] BOOL *pbLoadable);
 // https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-isloadable-method
-func (obj *ICLRRuntimeInfo) IsLoadable(pbLoadable *bool) error {
+func (obj *ICLRRuntimeInfo) IsLoadable() (pbLoadable bool, err error) {
 	debugPrint("Entering into iclrruntimeinfo.IsLoadable()...")
 	hr, _, err := syscall.Syscall(
 		obj.vtbl.IsLoadable,
 		2,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pbLoadable)),
+		uintptr(unsafe.Pointer(&pbLoadable)),
 		0)
 	if err != syscall.Errno(0) {
-		return fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method returned an error:\r\n%s", err)
+		err = fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method returned an error:\r\n%s", err)
+		return
 	}
 	if hr != S_OK {
-		return fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method  returned a non-zero HRESULT: 0x%x", hr)
+		err = fmt.Errorf("the ICLRRuntimeInfo::IsLoadable method  returned a non-zero HRESULT: 0x%x", hr)
+		return
 	}
-	return nil
+	err = nil
+	return
 }

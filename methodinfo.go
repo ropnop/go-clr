@@ -16,6 +16,12 @@ type MethodInfo struct {
 	vtbl *MethodInfoVtbl
 }
 
+// MethodInfoVtbl Discovers the attributes of a method and provides access to method metadata.
+// Inheritance: Object -> MemberInfo -> MethodBase -> MethodInfo
+// MethodInfo Class: https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodinfo?view=net-5.0
+// MethodBase Class: https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodbase?view=net-5.0
+// MemberInfo Class: https://docs.microsoft.com/en-us/dotnet/api/system.reflection.memberinfo?view=net-5.0
+// Object Class: https://docs.microsoft.com/en-us/dotnet/api/system.object?view=net-5.0
 type MethodInfoVtbl struct {
 	QueryInterface                 uintptr
 	AddRef                         uintptr
@@ -90,16 +96,6 @@ func (obj *MethodInfo) Release() uintptr {
 	return ret
 }
 
-func (obj *MethodInfo) GetType(pRetVal *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall(
-		obj.vtbl.GetType,
-		2,
-		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pRetVal)),
-		0)
-	return ret
-}
-
 // Invoke_3 Invokes the method or constructor reflected by this MethodInfo instance.
 //      virtual HRESULT __stdcall Invoke_3 (
 //      /*[in]*/ VARIANT obj,
@@ -138,6 +134,7 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err 
 // GetString returns a string that represents the current object
 // a string version of the method's signature
 // public virtual string ToString ();
+// https://docs.microsoft.com/en-us/dotnet/api/system.object.tostring?view=net-5.0#System_Object_ToString
 func (obj *MethodInfo) GetString() (str string, err error) {
 	debugPrint("Entering into methodinfo.GetString()...")
 	var object *string

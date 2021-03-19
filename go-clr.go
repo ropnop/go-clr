@@ -53,7 +53,7 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 	if targetRuntime == "" {
 		targetRuntime = "v4"
 	}
-	metahost, err := GetICLRMetaHost()
+	metahost, err := CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
 	if err != nil {
 		return
 	}
@@ -75,8 +75,8 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 	if err != nil {
 		return
 	}
-	var isLoadable bool
-	err = runtimeInfo.IsLoadable(&isLoadable)
+
+	isLoadable, err := runtimeInfo.IsLoadable()
 	if err != nil {
 		return
 	}
@@ -88,21 +88,25 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 		return
 	}
 
-	pDLLPath, _ := syscall.UTF16PtrFromString(dllpath)
-	pTypeName, _ := syscall.UTF16PtrFromString(typeName)
-	pMethodName, _ := syscall.UTF16PtrFromString(methodName)
-	pArgument, _ := syscall.UTF16PtrFromString(argument)
-	var pReturnVal uint16
-	hr := runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument, &pReturnVal)
-	err = checkOK(hr, "runtimeHost.ExecuteInDefaultAppDomain")
-	if err != nil {
-		return int16(pReturnVal), err
+	pDLLPath, err := syscall.UTF16PtrFromString(dllpath)
+	must(err)
+	pTypeName, err := syscall.UTF16PtrFromString(typeName)
+	must(err)
+	pMethodName, err := syscall.UTF16PtrFromString(methodName)
+	must(err)
+	pArgument, err := syscall.UTF16PtrFromString(argument)
+	must(err)
+
+	ret, err := runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument)
+	must(err)
+	if *ret != 0 {
+		return int16(*ret), fmt.Errorf("the ICLRRuntimeHost::ExecuteInDefaultAppDomain method returned a non-zero return value: %d", *ret)
 	}
+
 	runtimeHost.Release()
 	runtimeInfo.Release()
 	metahost.Release()
-	return int16(pReturnVal), nil
-
+	return 0, nil
 }
 
 // ExecuteByteArray is a wrapper function that will automatically loads the supplied target framework into the current
@@ -114,7 +118,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if targetRuntime == "" {
 		targetRuntime = "v4"
 	}
-	metahost, err := GetICLRMetaHost()
+	metahost, err := CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
 	if err != nil {
 		return
 	}
@@ -136,8 +140,8 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if err != nil {
 		return
 	}
-	var isLoadable bool
-	err = runtimeInfo.IsLoadable(&isLoadable)
+
+	isLoadable, err := runtimeInfo.IsLoadable()
 	if err != nil {
 		return
 	}

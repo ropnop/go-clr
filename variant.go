@@ -3,8 +3,12 @@
 package clr
 
 const (
+	// VT_EMPTY No value was specified. If an optional argument to an Automation method is left blank, do not
+	// pass a VARIANT of type VT_EMPTY. Instead, pass a VARIANT of type VT_ERROR with a value of DISP_E_PARAMNOTFOUND.
 	VT_EMPTY uint16 = 0x0000
-	VT_NULL  uint16 = 0x0001
+	// VT_NULL A propagating null value was specified. (This should not be confused with the null pointer.)
+	// The null value is used for tri-state logic, as with SQL.
+	VT_NULL uint16 = 0x0001
 	// VT_UI1 is a Variant Type of Unsigned Integer of 1-byte
 	VT_UI1 uint16 = 0x0011
 	// VT_UT4 is a Varriant Type of Unsigned Integer of 4-byte

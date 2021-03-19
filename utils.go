@@ -16,6 +16,7 @@ import (
 
 var Debug = false
 
+// checkOK evaluates a HRESULT code for a caller and determines if there was an error
 func checkOK(hr uintptr, caller string) error {
 	if hr != S_OK {
 		return fmt.Errorf("%s returned 0x%08x", caller, hr)
@@ -24,6 +25,7 @@ func checkOK(hr uintptr, caller string) error {
 	}
 }
 
+// must forces the program to exit if there is an error using the log.Fatal command
 func must(err error) {
 	if err != nil {
 		log.Fatal(err)

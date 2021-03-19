@@ -24,7 +24,7 @@ func checkOK(hr uintptr, caller string) {
 }
 
 func main() {
-	metahost, err := clr.GetICLRMetaHost()
+	metahost, err := clr.CLRCreateInstance(clr.CLSID_CLRMetaHost, clr.IID_ICLRMetaHost)
 	must(err)
 	fmt.Println("[+] Got metahost")
 
@@ -39,8 +39,7 @@ func main() {
 	must(err)
 	fmt.Printf("[+] Using runtime: %s\n", versionString)
 
-	var isLoadable bool
-	err = runtimeInfo.IsLoadable(&isLoadable)
+	isLoadable, err := runtimeInfo.IsLoadable()
 	must(err)
 	if !isLoadable {
 		log.Fatal("[!] IsLoadable returned false. Bailing...")
@@ -55,18 +54,22 @@ func main() {
 	fmt.Println("[+] Loaded CLR into this process")
 
 	fmt.Println("[+] Executing assembly...")
-	pDLLPath, _ := syscall.UTF16PtrFromString("TestDLL.dll")
-	pTypeName, _ := syscall.UTF16PtrFromString("TestDLL.HelloWorld")
-	pMethodName, _ := syscall.UTF16PtrFromString("SayHello")
-	pArgument, _ := syscall.UTF16PtrFromString("foobar")
-	var pReturnVal *uint16
-	hr := runtimeHost.ExecuteInDefaultAppDomain(
+	pDLLPath, err := syscall.UTF16PtrFromString("TestDLL.dll")
+	must(err)
+	pTypeName, err := syscall.UTF16PtrFromString("TestDLL.HelloWorld")
+	must(err)
+	pMethodName, err := syscall.UTF16PtrFromString("SayHello")
+	must(err)
+	pArgument, err := syscall.UTF16PtrFromString("foobar")
+	must(err)
+	ret, err := runtimeHost.ExecuteInDefaultAppDomain(
 		pDLLPath,
 		pTypeName,
 		pMethodName,
 		pArgument,
-		pReturnVal)
-
-	checkOK(hr, "runtimeHost.ExecuteInDefaultAppDomain")
-	fmt.Printf("[+] Assembly returned: 0x%x\n", pReturnVal)
+	)
+	if *ret != 0 {
+		err = fmt.Errorf("the ICLRRuntimeHost::ExecuteInDefaultAppDomain method returned a non-zero return value: %d", *ret)
+	}
+	must(err)
 }

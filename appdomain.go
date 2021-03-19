@@ -10,10 +10,18 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// AppDomain is a Windows COM object interface pointer for the .NET AppDomain class.
+// The AppDomain object represents an application domain, which is an isolated environment where applications execute.
+// This structure only contains a pointer to the AppDomain's virtual function table
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain?view=netframework-4.8
 type AppDomain struct {
 	vtbl *AppDomainVtbl
 }
 
+// AppDomainVtbl is a Virtual Function Table for the AppDomain COM interface
+// The Virtual Function Table contains pointers to the COM IUnkown interface
+// functions (QueryInterface, AddRef, & Release) as well as the AppDomain object's methods
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain?view=netframework-4.8
 type AppDomainVtbl struct {
 	QueryInterface            uintptr
 	AddRef                    uintptr
@@ -99,6 +107,7 @@ func GetAppDomain(runtimeHost *ICORRuntimeHost) (appDomain *AppDomain, err error
 }
 
 func (obj *AppDomain) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
+	debugPrint("Entering into appdomain.QueryInterface()...")
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,
@@ -128,14 +137,22 @@ func (obj *AppDomain) Release() uintptr {
 	return ret
 }
 
-func (obj *AppDomain) GetHashCode() uintptr {
-	ret, _, _ := syscall.Syscall(
+// GetHashCode serves as the default hash function.
+// https://docs.microsoft.com/en-us/dotnet/api/system.object.gethashcode?view=netframework-4.8#System_Object_GetHashCode
+func (obj *AppDomain) GetHashCode() (int32, error) {
+	debugPrint("Entering into appdomain.GetHashCode()...")
+	ret, _, err := syscall.Syscall(
 		obj.vtbl.GetHashCode,
 		2,
 		uintptr(unsafe.Pointer(obj)),
 		0,
-		0)
-	return ret
+		0,
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the appdomain.GetHashCode function returned an error:\r\n%s", err)
+	}
+	// Unable to avoid misuse of unsafe.Pointer because the Windows API call returns the safeArray pointer in the "ret" value. This is a go vet false positive
+	return int32(ret), nil
 }
 
 // Load_3 Loads an Assembly into this application domain.

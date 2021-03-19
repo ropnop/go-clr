@@ -12,14 +12,21 @@ type IEnumUnknown struct {
 	vtbl *IEnumUnknownVtbl
 }
 
+// IEnumUnknownVtbl Enumerates objects implementing the root COM interface, IUnknown.
+// Commonly implemented by a component containing multiple objects. For more information, see IEnumUnknown.
+// https://docs.microsoft.com/en-us/windows/win32/api/objidl/nn-objidl-ienumunknown
 type IEnumUnknownVtbl struct {
 	QueryInterface uintptr
 	AddRef         uintptr
 	Release        uintptr
-	Next           uintptr
-	Skip           uintptr
-	Reset          uintptr
-	Clone          uintptr
+	// Next Retrieves the specified number of items in the enumeration sequence.
+	Next uintptr
+	// Skip Skips over the specified number of items in the enumeration sequence.
+	Skip uintptr
+	// Reset Resets the enumeration sequence to the beginning.
+	Reset uintptr
+	// Clone Creates a new enumerator that contains the same enumeration state as the current one.
+	Clone uintptr
 }
 
 func (obj *IEnumUnknown) AddRef() uintptr {

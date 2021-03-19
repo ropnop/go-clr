@@ -18,17 +18,37 @@ type ICLRMetaHost struct {
 	vtbl *ICLRMetaHostVtbl
 }
 
+// ICLRMetaHostVtbl provides methods that return a specific version of the common language runtime (CLR)
+// based on its version number, list all installed CLRs, list all runtimes that are loaded in a specified
+// process, discover the CLR version used to compile an assembly, exit a process with a clean runtime
+// shutdown, and query legacy API binding.
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-interface
 type ICLRMetaHostVtbl struct {
-	QueryInterface                   uintptr
-	AddRef                           uintptr
-	Release                          uintptr
-	GetRuntime                       uintptr
-	GetVersionFromFile               uintptr
-	EnumerateInstalledRuntimes       uintptr
-	EnumerateLoadedRuntimes          uintptr
+	QueryInterface uintptr
+	AddRef         uintptr
+	Release        uintptr
+	// GetRuntime gets the ICLRRuntimeInfo interface that corresponds to a particular CLR version.
+	// This method supersedes the CorBindToRuntimeEx function used with the STARTUP_LOADER_SAFEMODE flag.
+	GetRuntime uintptr
+	// GetVersionFromFile gets the assembly's original .NET Framework compilation version (stored in the metadata),
+	// given its file path. This method supersedes GetFileVersion.
+	GetVersionFromFile uintptr
+	// EnumerateInstalledRuntimes returns an enumeration that contains a valid ICLRRuntimeInfo interface
+	// pointer for each CLR version that is installed on a computer.
+	EnumerateInstalledRuntimes uintptr
+	// EnumerateLoadedRuntimes returns an enumeration that contains a valid ICLRRuntimeInfo interface
+	// pointer for each CLR that is loaded in a given process. This method supersedes GetVersionFromProcess.
+	EnumerateLoadedRuntimes uintptr
+	// RequestRuntimeLoadedNotification guarantees a callback to the specified function pointer when a
+	// CLR version is first loaded, but not yet started. This method supersedes LockClrVersion
 	RequestRuntimeLoadedNotification uintptr
-	QueryLegacyV2RuntimeBinding      uintptr
-	ExitProcess                      uintptr
+	// QueryLegacyV2RuntimeBinding returns an interface that represents a runtime to which legacy activation policy
+	// has been bound, for example by using the useLegacyV2RuntimeActivationPolicy attribute on the <startup> Element
+	// configuration file entry, by direct use of the legacy activation APIs, or by calling the
+	// ICLRRuntimeInfo::BindAsLegacyV2Runtime method.
+	QueryLegacyV2RuntimeBinding uintptr
+	// ExitProcess attempts to shut down all loaded runtimes gracefully and then terminates the process.
+	ExitProcess uintptr
 }
 
 // CLRCreateInstance provides one of three interfaces: ICLRMetaHost, ICLRMetaHostPolicy, or ICLRDebugging.
@@ -50,24 +70,22 @@ func CLRCreateInstance(clsid, riid windows.GUID) (ppInterface *ICLRMetaHost, err
 	procCLRCreateInstance := modMSCoree.MustFindProc("CLRCreateInstance")
 
 	// For some reason this procedure call returns "The specified procedure could not be found." even though it works
-	hr, _, _ := procCLRCreateInstance.Call(
+	hr, _, err := procCLRCreateInstance.Call(
 		uintptr(unsafe.Pointer(&clsid)),
 		uintptr(unsafe.Pointer(&riid)),
 		uintptr(unsafe.Pointer(&ppInterface)),
 	)
 
+	if err != nil {
+		// TODO Figure out why "The specified procedure could not be found." is returned even though everything works fine?
+		debugPrint(fmt.Sprintf("the mscoree!CLRCreateInstance function returned an error:\r\n%s", err))
+	}
 	if hr != S_OK {
 		err = fmt.Errorf("the mscoree!CLRCreateInstance function returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
 	err = nil
 	return
-}
-
-// GetICLRMetaHost is a wrapper function to create and return an ICLRMetahost object
-func GetICLRMetaHost() (metahost *ICLRMetaHost, err error) {
-	// TODO Get rid of ^ function
-	return CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
 }
 
 func (obj *ICLRMetaHost) AddRef() uintptr {

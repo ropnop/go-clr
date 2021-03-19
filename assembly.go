@@ -16,6 +16,8 @@ type Assembly struct {
 	vtbl *AssemblyVtbl
 }
 
+// AssemblyVtbl is a COM virtual table of functions for the Assembly Class
+// https://docs.microsoft.com/en-us/dotnet/api/system.reflection.assembly?view=netframework-4.8
 type AssemblyVtbl struct {
 	QueryInterface              uintptr
 	AddRef                      uintptr

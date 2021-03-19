@@ -12,29 +12,55 @@ type ICORRuntimeHost struct {
 	vtbl *ICORRuntimeHostVtbl
 }
 
+// ICORRuntimeHos Provides methods that enable the host to start and stop the common language runtime (CLR)
+// explicitly, to create and configure application domains, to access the default domain, and to enumerate all
+// domains running in the process.
 type ICORRuntimeHostVtbl struct {
-	QueryInterface                uintptr
-	AddRef                        uintptr
-	Release                       uintptr
-	CreateLogicalThreadState      uintptr
-	DeleteLogicalThreadState      uintptr
-	SwitchInLogicalThreadState    uintptr
-	SwitchOutLogicalThreadState   uintptr
+	QueryInterface uintptr
+	AddRef         uintptr
+	Release        uintptr
+	// CreateLogicalThreadState Do not use.
+	CreateLogicalThreadState uintptr
+	// DeleteLogicalThreadSate Do not use.
+	DeleteLogicalThreadState uintptr
+	// SwitchInLogicalThreadState Do not use.
+	SwitchInLogicalThreadState uintptr
+	// SwitchOutLogicalThreadState Do not use.
+	SwitchOutLogicalThreadState uintptr
+	// LocksHeldByLogicalThreadState Do not use.
 	LocksHeldByLogicalThreadState uintptr
-	MapFile                       uintptr
-	GetConfiguration              uintptr
-	Start                         uintptr
-	Stop                          uintptr
-	CreateDomain                  uintptr
-	GetDefaultDomain              uintptr
-	EnumDomains                   uintptr
-	NextDomain                    uintptr
-	CloseEnum                     uintptr
-	CreateDomainEx                uintptr
-	CreateDomainSetup             uintptr
-	CreateEvidence                uintptr
-	UnloadDomain                  uintptr
-	CurrentDomain                 uintptr
+	// MapFile Maps the specified file into memory. This method is obsolete.
+	MapFile uintptr
+	// GetConfiguration Gets an object that allows the host to specify the callback configuration of the CLR.
+	GetConfiguration uintptr
+	// Start Starts the CLR.
+	Start uintptr
+	// Stop Stops the execution of code in the runtime for the current process.
+	Stop uintptr
+	// CreateDomain Creates an application domain. The caller receives an interface pointer of
+	// type _AppDomain to an instance of type System.AppDomain.
+	CreateDomain uintptr
+	// GetDefaultDomain Gets an interface pointer of type _AppDomain that represents the default domain for the current process.
+	GetDefaultDomain uintptr
+	// EnumDomains Gets an enumerator for the domains in the current process.
+	EnumDomains uintptr
+	// NextDomain Gets an interface pointer to the next domain in the enumeration.
+	NextDomain uintptr
+	// CloseEnum Resets a domain enumerator back to the beginning of the domain list.
+	CloseEnum uintptr
+	// CreateDomainEx Creates an application domain. This method allows the caller to pass an
+	// IAppDomainSetup instance to configure additional features of the returned _AppDomain instance.
+	CreateDomainEx uintptr
+	// CreateDomainSetup Gets an interface pointer of type IAppDomainSetup to an AppDomainSetup instance.
+	// IAppDomainSetup provides methods to configure aspects of an application domain before it is created.
+	CreateDomainSetup uintptr
+	// CreateEvidence Gets an interface pointer of type IIdentity, which allows the host to create security
+	// evidence to pass to CreateDomain or CreateDomainEx.
+	CreateEvidence uintptr
+	// UnloadDomain Unloads the specified application domain from the current process.
+	UnloadDomain uintptr
+	// CurrentDomain Gets an interface pointer of type _AppDomain that represents the domain loaded on the current thread.
+	CurrentDomain uintptr
 }
 
 // GetICORRuntimeHost is a wrapper function that takes in an ICLRRuntimeInfo and returns an ICORRuntimeHost object
