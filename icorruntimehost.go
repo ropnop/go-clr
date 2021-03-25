@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 type ICORRuntimeHost struct {
 	vtbl *ICORRuntimeHostVtbl
 }
 
-// ICORRuntimeHos Provides methods that enable the host to start and stop the common language runtime (CLR)
+// ICORRuntimeHostVtbl Provides methods that enable the host to start and stop the common language runtime (CLR)
 // explicitly, to create and configure application domains, to access the default domain, and to enumerate all
 // domains running in the process.
 type ICORRuntimeHostVtbl struct {
@@ -76,6 +78,26 @@ func GetICORRuntimeHost(runtimeInfo *ICLRRuntimeInfo) (*ICORRuntimeHost, error) 
 
 	err = runtimeHost.Start()
 	return runtimeHost, err
+}
+
+func (obj *ICORRuntimeHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
+	debugPrint("Entering into icorruntimehost.QueryInterface()...")
+	hr, _, err := syscall.Syscall(
+		obj.vtbl.QueryInterface,
+		3,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
+		uintptr(ppvObject),
+	)
+	if err != syscall.Errno(0) {
+		fmt.Println("1111111111111")
+		return fmt.Errorf("the IUknown::QueryInterface method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		fmt.Println("222222222222222222")
+		return fmt.Errorf("the IUknown::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }
 
 func (obj *ICORRuntimeHost) AddRef() uintptr {
@@ -142,6 +164,38 @@ func (obj *ICORRuntimeHost) GetDefaultDomain() (IUnknown *IUnknown, err error) {
 	}
 	if hr != S_OK {
 		err = fmt.Errorf("the ICORRuntimeHost::GetDefaultDomain method method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	return
+}
+
+// CreateDomain Creates an application domain. The caller receives an interface pointer of type _AppDomain to an instance of type System.AppDomain.
+// HRESULT CreateDomain (
+//   [in] LPWSTR    pwzFriendlyName,
+//   [in] IUnknown* pIdentityArray,
+//   [out] void   **pAppDomain
+// );
+// https://docs.microsoft.com/en-us/previous-versions/dotnet/netframework-4.0/ms164322(v=vs.100)
+func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *AppDomain, err error) {
+	debugPrint("Entering into icorruntimehost.CreateDomain()...")
+	hr, _, err := syscall.Syscall6(
+		obj.vtbl.CreateDomain,
+		4,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(pwzFriendlyName)), // [in] LPWSTR    pwzFriendlyName - An optional parameter used to give a friendly name to the domain
+		uintptr(unsafe.Pointer(nil)),             // [in] IUnknown* pIdentityArray - An optional array of pointers to IIdentity instances that represent evidence mapped through security policy to establish a permission set
+		uintptr(unsafe.Pointer(&pAppDomain)),     // [out] IUnknown** pAppDomain
+		0,
+		0,
+	)
+	if err != syscall.Errno(0) {
+		// The specified procedure could not be found.
+		// TODO Why is this error message returned?
+		debugPrint(fmt.Sprintf("the ICORRuntimeHost::CreateDomain method returned an error:\r\n%s", err))
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICORRuntimeHost::CreateDomain method method returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
 	err = nil

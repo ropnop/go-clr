@@ -88,6 +88,24 @@ func CLRCreateInstance(clsid, riid windows.GUID) (ppInterface *ICLRMetaHost, err
 	return
 }
 
+func (obj *ICLRMetaHost) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
+	debugPrint("Entering into icorruntimehost.QueryInterface()...")
+	hr, _, err := syscall.Syscall(
+		obj.vtbl.QueryInterface,
+		3,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
+		uintptr(ppvObject),
+	)
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the IUknown::QueryInterface method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the IUknown::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
+}
+
 func (obj *ICLRMetaHost) AddRef() uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.AddRef,

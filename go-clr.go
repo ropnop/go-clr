@@ -197,3 +197,176 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	metahost.Release()
 	return 0, nil
 }
+
+// LoadCLR loads the target runtime into the current process and returns the runtimehost
+// The intended purpose is for the runtimehost to be reused for subsequent operations
+// throught the duration of the program. Commonly used with C2 frameworks
+func LoadCLR(targetRuntime string) (runtimeHost *ICORRuntimeHost, err error) {
+	if targetRuntime == "" {
+		targetRuntime = "v4"
+	}
+
+	metahost, err := CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
+	if err != nil {
+		return runtimeHost, fmt.Errorf("there was an error enumerating the installed CLR runtimes:\n%s", err)
+	}
+
+	runtimes, err := GetInstalledRuntimes(metahost)
+	if err != nil {
+		return
+	}
+	var latestRuntime string
+	for _, r := range runtimes {
+		if strings.Contains(r, targetRuntime) {
+			latestRuntime = r
+			break
+		} else {
+			latestRuntime = r
+		}
+	}
+	runtimeInfo, err := GetRuntimeInfo(metahost, latestRuntime)
+	if err != nil {
+		return
+	}
+
+	isLoadable, err := runtimeInfo.IsLoadable()
+	if err != nil {
+		return
+	}
+	if !isLoadable {
+		err = fmt.Errorf("%s is not loadable for some reason", latestRuntime)
+	}
+
+	return GetICORRuntimeHost(runtimeInfo)
+}
+
+// ExecuteByteArrayDefaultDomain uses a previously instantiated runtimehost, gets the default AppDomain,
+// loads the assembly into, executes the assembly, and then releases AppDomain
+// Intended to be used by C2 frameworks to quickly execute an assembly one time
+func ExecuteByteArrayDefaultDomain(runtimeHost *ICORRuntimeHost, rawBytes []byte, params []string) (stdout string, stderr string) {
+	appDomain, err := GetAppDomain(runtimeHost)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+	safeArrayPtr, err := CreateSafeArray(rawBytes)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	assembly, err := appDomain.Load_3(safeArrayPtr)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	methodInfo, err := assembly.GetEntryPoint()
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	var paramSafeArray *SafeArray
+	methodSignature, err := methodInfo.GetString()
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	if expectsParams(methodSignature) {
+		if paramSafeArray, err = PrepareParameters(params); err != nil {
+			stderr = err.Error()
+			return
+		}
+	}
+
+	nullVariant := Variant{
+		VT:  1,
+		Val: uintptr(0),
+	}
+
+	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	assembly.Release()
+	appDomain.Release()
+	return
+}
+
+func LoadByteArrayInAppDomain(appDomain *AppDomain, rawBytes []byte) (methodInfo *MethodInfo, err error) {
+	safeArrayPtr, err := CreateSafeArray(rawBytes)
+	if err != nil {
+		return
+	}
+
+	assembly, err := appDomain.Load_3(safeArrayPtr)
+	if err != nil {
+		return
+	}
+
+	return assembly.GetEntryPoint()
+}
+
+// LoadAssembly uses a previously instantiated runtimehost and loads an assembly into the default AppDomain
+// and returns the assembly's methodInfo structure. The intended purpose is for the assembly to be loaded
+// once but executed many times throught the duration of the program. Commonly used with C2 frameworks
+func LoadAssembly(runtimeHost *ICORRuntimeHost, rawBytes []byte) (methodInfo *MethodInfo, err error) {
+	appDomain, err := GetAppDomain(runtimeHost)
+	if err != nil {
+		return
+	}
+	safeArrayPtr, err := CreateSafeArray(rawBytes)
+	if err != nil {
+		return
+	}
+
+	assembly, err := appDomain.Load_3(safeArrayPtr)
+	if err != nil {
+		return
+	}
+	return assembly.GetEntryPoint()
+}
+
+// InvokeAssembly uses the MethodInfo structure of a previously loaded assembly and executes it.
+// The intended purpose is for the assembly to be executed many times throught the duration of the
+// program. Commonly used with C2 frameworks
+func InvokeAssembly(methodInfo *MethodInfo, params []string) (stdout string, stderr string) {
+	var paramSafeArray *SafeArray
+	methodSignature, err := methodInfo.GetString()
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	if expectsParams(methodSignature) {
+		if paramSafeArray, err = PrepareParameters(params); err != nil {
+			stderr = err.Error()
+			return
+		}
+	}
+
+	nullVariant := Variant{
+		VT:  1,
+		Val: uintptr(0),
+	}
+
+	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	// Read data from previously redirected STDOUT/STDERR
+	if wSTDOUT != nil {
+		stdout, stderr, err = ReadStdoutStderr()
+		if err != nil {
+			stderr += err.Error()
+		}
+	}
+
+	return
+}

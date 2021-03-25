@@ -66,14 +66,22 @@ type MethodInfoVtbl struct {
 	GetBaseDefinition              uintptr
 }
 
-func (obj *MethodInfo) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall(
+func (obj *MethodInfo) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
+	debugPrint("Entering into methodinfo.QueryInterface()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(riid)),
-		uintptr(unsafe.Pointer(ppvObject)))
-	return ret
+		uintptr(unsafe.Pointer(&riid)), // A reference to the interface identifier (IID) of the interface being queried for.
+		uintptr(ppvObject),
+	)
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the IUknown::QueryInterface method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the IUknown::QueryInterface method method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }
 
 func (obj *MethodInfo) AddRef() uintptr {
@@ -119,10 +127,50 @@ func (obj *MethodInfo) Invoke_3(variantObj Variant, parameters *SafeArray) (err 
 		err = fmt.Errorf("the MethodInfo::Invoke_3 method returned an error:\r\n%s", err)
 		return
 	}
+
+	// If the HRESULT is a TargetInvocationException, attempt to get the inner error
+	// This currentl doesn't work
+	if uint32(hr) == COR_E_TARGETINVOCATION {
+		var iSupportErrorInfo *ISupportErrorInfo
+		// See if MethodInfo supports the ISupportErrorInfo interface
+		err = obj.QueryInterface(IID_ISupportErrorInfo, unsafe.Pointer(&iSupportErrorInfo))
+		if err != nil {
+			err = fmt.Errorf("the MethodInfo::QueryInterface method returned an error when looking for the ISupportErrorInfo interface:\r\n%s", err)
+			return
+		}
+
+		// See if the ICorRuntimeHost interface supports the IErrorInfo interface
+		// Not sure if there is an Interface ID for MethodInfo
+		err = iSupportErrorInfo.InterfaceSupportsErrorInfo(IID_ICorRuntimeHost)
+		if err != nil {
+			err = fmt.Errorf("there was an error with the ISupportErrorInfo::InterfaceSupportsErrorInfo method:\r\n%s", err)
+			return
+		}
+
+		// Get the IErrorInfo object
+		iErrorInfo, errG := GetErrorInfo()
+		if errG != nil {
+			err = fmt.Errorf("there was an error getting the IErrorInfo object:\r\n%s", errG)
+			return err
+		}
+
+		// Read the IErrorInfo description
+		desc, errD := iErrorInfo.GetDescription()
+		if errD != nil {
+			err = fmt.Errorf("the IErrorInfo::GetDescription method returned an error:\r\n%s", errD)
+			return err
+		}
+		if desc == nil {
+			err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
+			return
+		}
+		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x with an IErrorInfo description of: %s", hr, *desc)
+	}
 	if hr != S_OK {
 		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
+
 	if pRetVal != nil {
 		err = fmt.Errorf("the Assembly::Invoke_3 method returned a non-zero pRetVal: %+v", pRetVal)
 		return

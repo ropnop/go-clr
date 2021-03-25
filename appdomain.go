@@ -182,3 +182,29 @@ func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (assembly *Assembly, err er
 
 	return
 }
+
+// ToString Obtains a string representation that includes the friendly name of the application domain and any context policies.
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.tostring?view=net-5.0#System_AppDomain_ToString
+func (obj *AppDomain) ToString() (domain string, err error) {
+	debugPrint("Entering into appdomain.ToString()...")
+	var pDomain *string
+	hr, _, err := syscall.Syscall(
+		obj.vtbl.get_ToString,
+		2,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&pDomain)),
+		0,
+	)
+
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the AppDomain.ToString method retured an error:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the AppDomain.ToString method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	domain = ReadUnicodeStr(unsafe.Pointer(pDomain))
+	return
+}

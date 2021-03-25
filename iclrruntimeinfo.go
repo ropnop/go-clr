@@ -155,7 +155,7 @@ func (obj *ICLRRuntimeInfo) GetInterface(rclsid windows.GUID, riid windows.GUID,
 	)
 	// The syscall returns "The requested lookup key was not found in any active activation context." in the error position
 	// TODO Why is this error message returned?
-	if err.Error() != "The requested lookup key was not found in any active activation context." {
+	if err != syscall.Errno(0) && err.Error() != "The requested lookup key was not found in any active activation context." {
 		return fmt.Errorf("the ICLRRuntimeInfo::GetInterface method returned an error:\r\n%s", err)
 	}
 	if hr != S_OK {
