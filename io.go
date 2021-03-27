@@ -62,6 +62,8 @@ func RedirectStdoutStderr() (err error) {
 }
 
 // RestoreStdoutStderr returns the program's original STDOUT/STDERR handles before they were redirected an *os.File
+// Previously instantiated CLRs will continue to use the REDIRECTED STDOUT/STDERR handles and will not resume
+// using the restored handles
 func RestoreStdoutStderr() error {
 	if err := windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, origSTDOUT); err != nil {
 		return fmt.Errorf("there was an error calling the windows.SetStdHandle function to restore the original STDOUT handle:\n%s", err)
@@ -77,44 +79,47 @@ func RestoreStdoutStderr() error {
 func ReadStdoutStderr() (stdout string, stderr string, err error) {
 	debugPrint("Entering io.ReadStdoutStderr()...")
 
-	/*
-		// Closing the STDOUT Writer will cause all subsequent calls to Invoke_3
-		// to return HRESULT: 0x80131604, TargetInvocationException (COR_E_TARGETINVOCATION)
-		// Have not been able to read the inner error and determine the root cause
-		// Leaving wSTDOUT open and never closing is a temporary work around
-		err = wSTDOUT.Close()
-		if err != nil {
-			err = fmt.Errorf("there was an error closing the STDOUT Writer:\n%s", err)
-			return
-		}
-	*/
+	// If nothing was written to STDOUT then Read() will block
+	// Can't call Close() because the pipe needs to remain open for the duration of the top-level program
+	// A "workaround" is to write in a null byte so that way it can be read and won't block
+	_, err = wSTDOUT.Write([]byte{0x00})
+	if err != nil {
+		err = fmt.Errorf("there was an error writing a null-byte into STDOUT Writer:\n%s", err)
+		return
+	}
 
 	// TODO Update to use io.ReadAll(), requires GO 1.16
 	// https://golang.org/pkg/io/#ReadAll
-	// TODO return to io.Copy at a minimum
 	bStdout := make([]byte, 500000)
 	c, err := rSTDOUT.Read(bStdout)
-	// Expected rSTDOUT.Read() to return io.EOF, but it doesn't
-	if err != nil {
+	// Will return EOF if there is no data to be read
+	if err != nil && err != io.EOF {
 		err = fmt.Errorf("there was an error reading from the STDOUT Reader:\n%s", err)
 		return
 	}
-	if c > 0 {
+	// If STDOUT is contains more than the null byte we wrote into it, then capture it
+	if c > 1 && bStdout[1] != 0x00 {
 		stdout = string(bStdout[:])
 	}
 
-	// Close the STDERR writer
-	// This is needed because there is no EOF if nothing was written STDERR and then the read call blocks
-	wSTDERR.Close()
+	// If nothing was written to STDERR then Read() will block
+	// Can't call Close() because the pipe needs to remain open for the duration of the top-level program
+	// A "workaround" is to write in a null byte so that way it can be read and won't block
+	_, err = wSTDERR.Write([]byte{0x00})
+	if err != nil {
+		err = fmt.Errorf("there was an error writing a null-byte into STDERR Writer:\n%s", err)
+		return
+	}
 	bStderr := make([]byte, 500000)
 	c, err = rSTDERR.Read(bStderr)
-	// rSTDERR.Read() will return io.EOF when nothing was written to it
+	// Will return EOF when nothing was written to it if Close() was called first
 	if err != nil && err != io.EOF {
 		err = fmt.Errorf("there was an error reading from the STDERR Reader:\n%s", err)
 		return
 	}
 	err = nil
-	if c > 0 {
+	// If STDERR is contains more than the null byte we wrote into it, then capture it
+	if c > 1 && bStderr[1] != 0x00 {
 		stderr = string(bStderr[:])
 	}
 
@@ -144,7 +149,7 @@ func CloseStdoutStderr() (err error) {
 
 	err = wSTDERR.Close()
 	if err != nil {
-		err = fmt.Errorf("there was an error closing the STDOUT Writer:\n%s", err)
+		err = fmt.Errorf("there was an error closing the STDERR Writer:\n%s", err)
 		return
 	}
 	return nil
