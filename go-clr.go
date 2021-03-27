@@ -297,20 +297,6 @@ func ExecuteByteArrayDefaultDomain(runtimeHost *ICORRuntimeHost, rawBytes []byte
 	return
 }
 
-func LoadByteArrayInAppDomain(appDomain *AppDomain, rawBytes []byte) (methodInfo *MethodInfo, err error) {
-	safeArrayPtr, err := CreateSafeArray(rawBytes)
-	if err != nil {
-		return
-	}
-
-	assembly, err := appDomain.Load_3(safeArrayPtr)
-	if err != nil {
-		return
-	}
-
-	return assembly.GetEntryPoint()
-}
-
 // LoadAssembly uses a previously instantiated runtimehost and loads an assembly into the default AppDomain
 // and returns the assembly's methodInfo structure. The intended purpose is for the assembly to be loaded
 // once but executed many times throught the duration of the program. Commonly used with C2 frameworks

@@ -17,6 +17,7 @@ type ICORRuntimeHost struct {
 // ICORRuntimeHostVtbl Provides methods that enable the host to start and stop the common language runtime (CLR)
 // explicitly, to create and configure application domains, to access the default domain, and to enumerate all
 // domains running in the process.
+// https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/icorruntimehost-interface
 type ICORRuntimeHostVtbl struct {
 	QueryInterface uintptr
 	AddRef         uintptr
@@ -195,7 +196,34 @@ func (obj *ICORRuntimeHost) CreateDomain(pwzFriendlyName *uint16) (pAppDomain *A
 		debugPrint(fmt.Sprintf("the ICORRuntimeHost::CreateDomain method returned an error:\r\n%s", err))
 	}
 	if hr != S_OK {
-		err = fmt.Errorf("the ICORRuntimeHost::CreateDomain method method returned a non-zero HRESULT: 0x%x", hr)
+		err = fmt.Errorf("the ICORRuntimeHost::CreateDomain method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	return
+}
+
+// EnumDomains Gets an enumerator for the domains in the current process.
+// HRESULT EnumDomains (
+//   [out] HCORENUM *hEnum
+// );
+func (obj *ICORRuntimeHost) EnumDomains() (hEnum *uintptr, err error) {
+	debugPrint("Enterin into icorruntimehost.EnumDomains()...")
+
+	hr, _, err := syscall.Syscall(
+		obj.vtbl.EnumDomains,
+		(uintptr(unsafe.Pointer(hEnum))),
+		0,
+		0,
+		0,
+	)
+
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the ICORRuntimeHost::EnumDomains method returned an error:\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the ICORRuntimeHost::EnumDomains method returned a non-zero HRESULT: 0x%x", hr)
 		return
 	}
 	err = nil

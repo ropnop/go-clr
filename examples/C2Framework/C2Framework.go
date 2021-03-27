@@ -14,7 +14,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"syscall"
 
 	// 3rd Party
 	clr "github.com/ropnop/go-clr"
@@ -56,22 +55,6 @@ func main() {
 	}
 	if *debug {
 		fmt.Printf("[DEBUG] Returned ICORRuntimeHost: %+v\n", runtimeHost)
-	}
-
-	// Create a new AppDomain
-	if *verbose {
-		fmt.Println("[-] Creating a new AppDomain...")
-	}
-	domain, err := syscall.UTF16PtrFromString("rubeus")
-	if err != nil {
-		log.Fatal(err)
-	}
-	appDomain, err := runtimeHost.CreateDomain(domain)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if *debug {
-		fmt.Printf("[DEBUG] Returned AppDomain: %v\n", appDomain)
 	}
 
 	// Get Rubeus
