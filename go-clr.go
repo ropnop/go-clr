@@ -354,6 +354,8 @@ func InvokeAssembly(methodInfo *MethodInfo, params []string) (stdout string, std
 		Val: uintptr(0),
 	}
 
+	defer SafeArrayDestroy(paramSafeArray)
+
 	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
 	if err != nil {
 		stderr = err.Error()

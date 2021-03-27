@@ -312,3 +312,29 @@ func SafeArrayGetUBound(psa *SafeArray, nDim uint32) (uint32, error) {
 	}
 	return plUbound, nil
 }
+
+// SafeArrayDestroy Destroys an existing array descriptor and all of the data in the array.
+// If objects are stored in the array, Release is called on each object in the array.
+// HRESULT SafeArrayDestroy(
+//   SAFEARRAY *psa
+// );
+func SafeArrayDestroy(psa *SafeArray) error {
+	debugPrint("Entering into safearray.SafeArrayDestroy()...")
+
+	modOleAuto := syscall.MustLoadDLL("OleAut32.dll")
+	safeArrayDestroy := modOleAuto.MustFindProc("SafeArrayDestroy")
+
+	hr, _, err := safeArrayDestroy.Call(
+		uintptr(unsafe.Pointer(psa)),
+		0,
+		0,
+	)
+
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the oleaut32!SafeArrayDestroy function call returned an error:\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the oleaut32!SafeArrayDestroy function returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
+}
