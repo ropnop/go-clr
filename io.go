@@ -3,9 +3,12 @@
 package clr
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
-	"io"
 	"os"
+	"sync"
+	"time"
 
 	"golang.org/x/sys/windows"
 )
@@ -27,6 +30,22 @@ var rSTDERR *os.File
 
 // wSTDERR is an io.Writer for STDERR
 var wSTDERR *os.File
+
+// Stdout is a buffer to collect anything written to STDOUT
+// The CLR will return the COR_E_TARGETINVOCATION error on subsequent Invoke_3 calls if the
+// redirected STDOUT writer is EVER closed while the parent process is running (e.g., a C2 Agent)
+// The redirected STDOUT reader will never recieve EOF and therefore reads will block and that is
+// why a buffer is used to stored anything that has been written to STDOUT while subsequent calls block
+var Stdout bytes.Buffer
+
+// Stderr is a buffer to collect anything written to STDERR
+var Stderr bytes.Buffer
+
+// errors is used to capture an errors from a goroutine
+var errors = make(chan error)
+
+// mutex ensures exclusive access to read/write on STDOUT/STDERR by one routine at a time
+var mutex = &sync.Mutex{}
 
 // RedirectStdoutStderr redirects the program's STDOUT/STDERR to an *os.File that can be read from this Go program
 // The CLR executes assemblies outside of Go and therefore STDOUT/STDERR can't be captured using normal functions
@@ -58,6 +77,10 @@ func RedirectStdoutStderr() (err error) {
 		return
 	}
 
+	// Start STDOUT/STDERR buffer and collection
+	go BufferStdout()
+	go BufferStderr()
+
 	return
 }
 
@@ -77,52 +100,35 @@ func RestoreStdoutStderr() error {
 // ReadStdoutStderr reads from the REDIRECTED STDOUT/STDERR
 // Only use when RedirectStdoutStderr was previously called
 func ReadStdoutStderr() (stdout string, stderr string, err error) {
-	debugPrint("Entering io.ReadStdoutStderr()...")
+	debugPrint("Entering into io.ReadStdoutStderr()...")
 
-	// If nothing was written to STDOUT then Read() will block
-	// Can't call Close() because the pipe needs to remain open for the duration of the top-level program
-	// A "workaround" is to write in a null byte so that way it can be read and won't block
-	_, err = wSTDOUT.Write([]byte{0x00})
-	if err != nil {
-		err = fmt.Errorf("there was an error writing a null-byte into STDOUT Writer:\n%s", err)
+	// Sleep for one Microsecond to wait for STDOUT/STDERR goroutines to finish reading
+	// Race condition between reading the buffers and reading STDOUT/STDERR to the buffers
+	// Can't close STDOUT/STDERR writers once the CLR invokes on assembly and EOF is not
+	// returned because parent program is perpetually running
+	time.Sleep(1 * time.Microsecond)
+
+	// Check the error channel to see if any of the goroutines generated an error
+	if len(errors) > 0 {
+		var totalErrors string
+		for e := range errors {
+			totalErrors += e.Error()
+		}
+		err = fmt.Errorf(totalErrors)
 		return
 	}
 
-	// TODO Update to use io.ReadAll(), requires GO 1.16
-	// https://golang.org/pkg/io/#ReadAll
-	bStdout := make([]byte, 500000)
-	c, err := rSTDOUT.Read(bStdout)
-	// Will return EOF if there is no data to be read
-	if err != nil && err != io.EOF {
-		err = fmt.Errorf("there was an error reading from the STDOUT Reader:\n%s", err)
-		return
-	}
-	// If STDOUT is contains more than the null byte we wrote into it, then capture it
-	if c > 1 && bStdout[1] != 0x00 {
-		stdout = string(bStdout[:])
+	// Read STDOUT Buffer
+	if Stdout.Len() > 0 {
+		stdout = Stdout.String()
+		Stdout.Reset()
 	}
 
-	// If nothing was written to STDERR then Read() will block
-	// Can't call Close() because the pipe needs to remain open for the duration of the top-level program
-	// A "workaround" is to write in a null byte so that way it can be read and won't block
-	_, err = wSTDERR.Write([]byte{0x00})
-	if err != nil {
-		err = fmt.Errorf("there was an error writing a null-byte into STDERR Writer:\n%s", err)
-		return
+	// Read STDERR Buffer
+	if Stderr.Len() > 0 {
+		stderr = Stderr.String()
+		Stderr.Reset()
 	}
-	bStderr := make([]byte, 500000)
-	c, err = rSTDERR.Read(bStderr)
-	// Will return EOF when nothing was written to it if Close() was called first
-	if err != nil && err != io.EOF {
-		err = fmt.Errorf("there was an error reading from the STDERR Reader:\n%s", err)
-		return
-	}
-	err = nil
-	// If STDERR is contains more than the null byte we wrote into it, then capture it
-	if c > 1 && bStderr[1] != 0x00 {
-		stderr = string(bStderr[:])
-	}
-
 	return
 }
 
@@ -153,4 +159,42 @@ func CloseStdoutStderr() (err error) {
 		return
 	}
 	return nil
+}
+
+// BufferStdout is designed to be used as a go routine to monitor for data written to the REDIRECTED STDOUT
+// and collect it into a buffer so that it can be collected and sent back to a server
+func BufferStdout() {
+	debugPrint("Entering into io.BufferStdout()...")
+	stdoutReader := bufio.NewReader(rSTDOUT)
+	for {
+		// Standard STDOUT buffer size is 4k
+		buf := make([]byte, 4096)
+		line, err := stdoutReader.Read(buf)
+		if err != nil {
+			errors <- fmt.Errorf("there was an error reading from STDOUT in io.BufferStdout:\n%s", err)
+		}
+		if line > 0 {
+			// Remove null bytes and add contents to the buffer
+			Stdout.Write(bytes.TrimRight(buf, "\x00"))
+		}
+	}
+}
+
+// BufferStderr is designed to be used as a go routine to monitor for data written to the REDIRECTED STDERR
+// and collect it into a buffer so that it can be collected and sent back to a server
+func BufferStderr() {
+	debugPrint("Entering into io.BufferStderr()...")
+	stderrReader := bufio.NewReader(rSTDERR)
+	for {
+		// Standard STDOUT buffer size is 4k
+		buf := make([]byte, 4096)
+		line, err := stderrReader.Read(buf)
+		if err != nil {
+			errors <- fmt.Errorf("there was an error reading from STDOUT in io.BufferStdout:\n%s", err)
+		}
+		if line > 0 {
+			// Remove null bytes and add contents to the buffer
+			Stderr.Write(bytes.TrimRight(buf, "\x00"))
+		}
+	}
 }

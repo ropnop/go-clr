@@ -212,6 +212,7 @@ func LoadCLR(targetRuntime string) (runtimeHost *ICORRuntimeHost, err error) {
 	}
 
 	runtimes, err := GetInstalledRuntimes(metahost)
+	debugPrint(fmt.Sprintf("Installed Runtimes: %v", runtimes))
 	if err != nil {
 		return
 	}
@@ -342,15 +343,21 @@ func InvokeAssembly(methodInfo *MethodInfo, params []string) (stdout string, std
 
 	defer SafeArrayDestroy(paramSafeArray)
 
+	// Ensure exclusive access to read/write STDOUT/STDERR
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
 	if err != nil {
 		stderr = err.Error()
-		return
+		// Don't return because there could be data on STDOUT/STDERR
 	}
 
 	// Read data from previously redirected STDOUT/STDERR
 	if wSTDOUT != nil {
-		stdout, stderr, err = ReadStdoutStderr()
+		var e string
+		stdout, e, err = ReadStdoutStderr()
+		stderr += e
 		if err != nil {
 			stderr += err.Error()
 		}

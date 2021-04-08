@@ -15,8 +15,7 @@ import (
 	"log"
 	"os"
 
-	// 3rd Party
-	clr "github.com/ropnop/go-clr"
+	clr "github.com/Ne0nd0g/go-clr/v1"
 )
 
 func main() {
@@ -28,9 +27,9 @@ func main() {
 	}
 	flag.Parse()
 
-	rubeusPath := "C:\\Users\\bob\\Desktop\\Rubeus4.exe"
-	seatbeltPath := "C:\\Users\\bob\\Desktop\\Seatbelt4.exe"
-	sharpupPath := "C:\\Users\\bob\\Desktop\\SharpUp4.exe"
+	rubeusPath := `C:\Users\bob\Desktop\Rubeus4.exe`
+	seatbeltPath := `C:\Users\bob\Desktop\Seatbelt4.exe`
+	sharpupPath := `C:\Users\bob\Desktop\SharpUp4.exe`
 
 	if *debug {
 		clr.Debug = true
@@ -99,7 +98,7 @@ func main() {
 	if *verbose {
 		fmt.Println("[-] Executing the Rubeus x2...")
 	}
-	stdout, stderr = clr.InvokeAssembly(methodInfo, []string{"triage"})
+	stdout, stderr = clr.InvokeAssembly(methodInfo, []string{"triage", "/service:KRBTGT"})
 	if *debug {
 		fmt.Printf("[DEBUG] Returned STDOUT/STDERR\nSTDOUT: %s\nSTDERR: %s\n", stdout, stderr)
 	}
@@ -186,7 +185,7 @@ func main() {
 	if *verbose {
 		fmt.Println("[-] Executing SharpUp...")
 	}
-	stdout, stderr = clr.InvokeAssembly(sharpUp, []string{"-h"})
+	stdout, stderr = clr.InvokeAssembly(sharpUp, []string{"audit"})
 	if *debug {
 		fmt.Printf("[DEBUG] Returned STDOUT/STDERR\nSTDOUT: %s\nSTDERR: %s\n", stdout, stderr)
 	}
