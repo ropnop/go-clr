@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	clr "github.com/Ne0nd0g/go-clr/v1"
+	clr "github.com/Ne0nd0g/go-clr"
 )
 
 func must(err error) {
