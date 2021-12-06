@@ -26,16 +26,17 @@ necessary to customize, but it also includes two "magic" functions to execute .N
 package main
 
 import (
-	clr "github.com/ropnop/go-clr"
-	"log"
 	"fmt"
+	clr "github.com/ropnop/go-clr"
 	"io/ioutil"
+	"log"
 	"runtime"
 )
 
 func main() {
 	fmt.Println("[+] Loading DLL from Disk")
 	ret, err := clr.ExecuteDLLFromDisk(
+		"v4",
 		"TestDLL.dll",
 		"TestDLL.HelloWorld",
 		"SayHello",
@@ -45,7 +46,7 @@ func main() {
 	}
 	fmt.Printf("[+] DLL Return Code: %d\n", ret)
 
-	
+
 	fmt.Println("[+] Executing EXE from memory")
 	exebytes, err := ioutil.ReadFile("helloworld.exe")
 	if err != nil {
@@ -53,7 +54,7 @@ func main() {
 	}
 	runtime.KeepAlive(exebytes)
 
-	ret2, err := clr.ExecuteByteArray(exebytes)
+	ret2, err := clr.ExecuteByteArray("v2", exebytes, []string{"test", "test2"})
 	if err != nil {
 		log.Fatal(err)
 	}
