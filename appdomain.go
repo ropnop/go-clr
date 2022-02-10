@@ -1,4 +1,4 @@
-// +build windows
+//go:build windows
 
 package clr
 
@@ -171,7 +171,9 @@ func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (assembly *Assembly, err er
 	)
 
 	if err != syscall.Errno(0) {
-		return
+		if err != syscall.Errno(1150) {
+			return
+		}
 	}
 
 	if hr != S_OK {
