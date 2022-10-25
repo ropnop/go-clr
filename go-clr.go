@@ -89,16 +89,26 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 	}
 
 	pDLLPath, err := syscall.UTF16PtrFromString(dllpath)
-	must(err)
+	if err != nil {
+		return
+	}
 	pTypeName, err := syscall.UTF16PtrFromString(typeName)
-	must(err)
+	if err != nil {
+		return
+	}
 	pMethodName, err := syscall.UTF16PtrFromString(methodName)
-	must(err)
+	if err != nil {
+		return
+	}
 	pArgument, err := syscall.UTF16PtrFromString(argument)
-	must(err)
+	if err != nil {
+		return
+	}
 
 	ret, err := runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument)
-	must(err)
+	if err != nil {
+		return
+	}
 	if *ret != 0 {
 		return int16(*ret), fmt.Errorf("the ICLRRuntimeHost::ExecuteInDefaultAppDomain method returned a non-zero return value: %d", *ret)
 	}
