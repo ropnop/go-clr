@@ -1,6 +1,7 @@
+//go:build windows
 // +build windows
 
-// go-clr is a PoC package that wraps Windows syscalls necessary to load and the CLR into the current process and
+// Package clr is a PoC package that wraps Windows syscalls necessary to load and the CLR into the current process and
 // execute a managed DLL from disk or a managed EXE from memory
 package clr
 
@@ -11,7 +12,7 @@ import (
 	"unsafe"
 )
 
-// GetInstallRuntimes is a wrapper function that returns an array of installed runtimes. Requires an existing ICLRMetaHost
+// GetInstalledRuntimes is a wrapper function that returns an array of installed runtimes. Requires an existing ICLRMetaHost
 func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	var runtimes []string
 	enumICLRRuntimeInfo, err := metahost.EnumerateInstalledRuntimes()
@@ -210,7 +211,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 
 // LoadCLR loads the target runtime into the current process and returns the runtimehost
 // The intended purpose is for the runtimehost to be reused for subsequent operations
-// throught the duration of the program. Commonly used with C2 frameworks
+// throughout the duration of the program. Commonly used with C2 frameworks
 func LoadCLR(targetRuntime string) (runtimeHost *ICORRuntimeHost, err error) {
 	if targetRuntime == "" {
 		targetRuntime = "v4"
@@ -310,7 +311,7 @@ func ExecuteByteArrayDefaultDomain(runtimeHost *ICORRuntimeHost, rawBytes []byte
 
 // LoadAssembly uses a previously instantiated runtimehost and loads an assembly into the default AppDomain
 // and returns the assembly's methodInfo structure. The intended purpose is for the assembly to be loaded
-// once but executed many times throught the duration of the program. Commonly used with C2 frameworks
+// once but executed many times throughout the duration of the program. Commonly used with C2 frameworks
 func LoadAssembly(runtimeHost *ICORRuntimeHost, rawBytes []byte) (methodInfo *MethodInfo, err error) {
 	appDomain, err := GetAppDomain(runtimeHost)
 	if err != nil {
@@ -329,7 +330,7 @@ func LoadAssembly(runtimeHost *ICORRuntimeHost, rawBytes []byte) (methodInfo *Me
 }
 
 // InvokeAssembly uses the MethodInfo structure of a previously loaded assembly and executes it.
-// The intended purpose is for the assembly to be executed many times throught the duration of the
+// The intended purpose is for the assembly to be executed many times throughout the duration of the
 // program. Commonly used with C2 frameworks
 func InvokeAssembly(methodInfo *MethodInfo, params []string) (stdout string, stderr string) {
 	var paramSafeArray *SafeArray
