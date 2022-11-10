@@ -10,16 +10,14 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-type IUnknown struct {
-	vtbl *IUnknownVtbl
+// ISupportErrorInfo Ensures that error information can be propagated up the call chain correctly.
+// Automation objects that use the error handling interfaces must implement ISupportErrorInfo
+// https://docs.microsoft.com/en-us/windows/win32/api/oaidl/nn-oaidl-isupporterrorinfo
+type ISupportErrorInfo struct {
+	vtbl *ISupportErrorInfoVtbl
 }
 
-// IUnknownVtbl Enables clients to get pointers to other interfaces on a given object through the
-// QueryInterface method, and manage the existence of the object through the AddRef and Release methods.
-// All other COM interfaces are inherited, directly or indirectly, from IUnknown. Therefore, the three
-// methods in IUnknown are the first entries in the vtable for every interface.
-// https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nn-unknwn-iunknown
-type IUnknownVtbl struct {
+type ISupportErrorInfoVtbl struct {
 	// QueryInterface Retrieves pointers to the supported interfaces on an object.
 	QueryInterface uintptr
 	// AddRef Increments the reference count for an interface pointer to a COM object.
@@ -27,6 +25,9 @@ type IUnknownVtbl struct {
 	AddRef uintptr
 	// Release Decrements the reference count for an interface on a COM object.
 	Release uintptr
+	// InterfaceSupportsErrorInfo Indicates whether an interface supports the IErrorInfo interface.
+	// https://docs.microsoft.com/en-us/windows/win32/api/oaidl/nf-oaidl-isupporterrorinfo-interfacesupportserrorinfo
+	InterfaceSupportsErrorInfo uintptr
 }
 
 // QueryInterface queries a COM object for a pointer to one of its interface;
@@ -37,7 +38,7 @@ type IUnknownVtbl struct {
 //   void   **ppvObject
 // );
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-queryinterface(refiid_void)
-func (obj *IUnknown) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
+func (obj *ISupportErrorInfo) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer) error {
 	debugPrint("Entering into iunknown.QueryInterface()...")
 	hr, _, err := syscall.Syscall(
 		obj.vtbl.QueryInterface,
@@ -59,7 +60,7 @@ func (obj *IUnknown) QueryInterface(riid windows.GUID, ppvObject unsafe.Pointer)
 // You should call this method whenever you make a copy of an interface pointer
 // ULONG AddRef();
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-addref
-func (obj *IUnknown) AddRef() (count uint32, err error) {
+func (obj *ISupportErrorInfo) AddRef() (count uint32, err error) {
 	debugPrint("Entering into iunknown.AddRef()...")
 	ret, _, err := syscall.Syscall(
 		obj.vtbl.AddRef,
@@ -80,7 +81,7 @@ func (obj *IUnknown) AddRef() (count uint32, err error) {
 // Release Decrements the reference count for an interface on a COM object.
 // ULONG Release();
 // https://docs.microsoft.com/en-us/windows/win32/api/unknwn/nf-unknwn-iunknown-release
-func (obj *IUnknown) Release() (count uint32, err error) {
+func (obj *ISupportErrorInfo) Release() (count uint32, err error) {
 	debugPrint("Entering into iunknown.Release()...")
 	ret, _, err := syscall.Syscall(
 		obj.vtbl.Release,
@@ -96,4 +97,27 @@ func (obj *IUnknown) Release() (count uint32, err error) {
 	// Unable to avoid misuse of unsafe.Pointer because the Windows API call returns the safeArray pointer in the "ret" value. This is a go vet false positive
 	count = *(*uint32)(unsafe.Pointer(ret))
 	return
+}
+
+// InterfaceSupportsErrorInfo
+// HRESULT InterfaceSupportsErrorInfo(
+//   REFIID riid
+// );
+// https://docs.microsoft.com/en-us/windows/win32/api/oaidl/nf-oaidl-isupporterrorinfo-interfacesupportserrorinfo
+func (obj *ISupportErrorInfo) InterfaceSupportsErrorInfo(riid windows.GUID) error {
+	debugPrint("Entering into isupporterrorinfo.InterfaceSupportsErrorInfo()...")
+	hr, _, err := syscall.Syscall(
+		obj.vtbl.InterfaceSupportsErrorInfo,
+		2,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&riid)),
+		0,
+	)
+	if err != syscall.Errno(0) {
+		return fmt.Errorf("the ISupportErrorInfo::InterfaceSupportsErrorInfo method returned an error:\r\n%s", err)
+	}
+	if hr != S_OK {
+		return fmt.Errorf("the ISupportErrorInfo::InterfaceSupportsErrorInfo method method returned a non-zero HRESULT: 0x%x", hr)
+	}
+	return nil
 }

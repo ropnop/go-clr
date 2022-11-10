@@ -8,7 +8,7 @@ import (
 	"log"
 	"runtime"
 
-	clr "github.com/ropnop/go-clr"
+	clr "github.com/Ne0nd0g/go-clr"
 )
 
 func main() {

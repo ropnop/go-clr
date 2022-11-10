@@ -3,9 +3,11 @@
 package clr
 
 import (
-	"golang.org/x/sys/windows"
+	"fmt"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 // from mscorlib.tlh
@@ -14,6 +16,8 @@ type Assembly struct {
 	vtbl *AssemblyVtbl
 }
 
+// AssemblyVtbl is a COM virtual table of functions for the Assembly Class
+// https://docs.microsoft.com/en-us/dotnet/api/system.reflection.assembly?view=netframework-4.8
 type AssemblyVtbl struct {
 	QueryInterface              uintptr
 	AddRef                      uintptr
@@ -68,10 +72,6 @@ type AssemblyVtbl struct {
 	get_GlobalAssemblyCache     uintptr
 }
 
-func NewAssemblyFromPtr(ppv uintptr) *Assembly {
-	return (*Assembly)(unsafe.Pointer(ppv))
-}
-
 func (obj *Assembly) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
@@ -102,12 +102,28 @@ func (obj *Assembly) Release() uintptr {
 	return ret
 }
 
-func (obj *Assembly) GetEntryPoint(pMethodInfo *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall(
+// GetEntryPoint returns the assembly's MethodInfo
+//      virtual HRESULT __stdcall get_EntryPoint (
+//     /*[out,retval]*/ struct _MethodInfo * * pRetVal ) = 0;
+// https://docs.microsoft.com/en-us/dotnet/api/system.reflection.assembly.entrypoint?view=netframework-4.8#System_Reflection_Assembly_EntryPoint
+// https://docs.microsoft.com/en-us/dotnet/api/system.reflection.methodinfo?view=netframework-4.8
+func (obj *Assembly) GetEntryPoint() (pRetVal *MethodInfo, err error) {
+	debugPrint("Entering into assembly.GetEntryPoint()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.get_EntryPoint,
 		2,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pMethodInfo)),
-		0)
-	return ret
+		uintptr(unsafe.Pointer(&pRetVal)),
+		0,
+	)
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the Assembly::GetEntryPoint method returned an error:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the Assembly::GetEntryPoint method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	return
 }

@@ -1,18 +1,27 @@
-// +build windows
+//go:build windows
 
 package clr
 
 import (
+	"fmt"
 	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
+// AppDomain is a Windows COM object interface pointer for the .NET AppDomain class.
+// The AppDomain object represents an application domain, which is an isolated environment where applications execute.
+// This structure only contains a pointer to the AppDomain's virtual function table
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain?view=netframework-4.8
 type AppDomain struct {
 	vtbl *AppDomainVtbl
 }
 
+// AppDomainVtbl is a Virtual Function Table for the AppDomain COM interface
+// The Virtual Function Table contains pointers to the COM IUnkown interface
+// functions (QueryInterface, AddRef, & Release) as well as the AppDomain object's methods
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain?view=netframework-4.8
 type AppDomainVtbl struct {
 	QueryInterface            uintptr
 	AddRef                    uintptr
@@ -88,24 +97,17 @@ type AppDomainVtbl struct {
 
 // GetAppDomain is a wrapper function that returns an appDomain from an existing ICORRuntimeHost object
 func GetAppDomain(runtimeHost *ICORRuntimeHost) (appDomain *AppDomain, err error) {
-	var pAppDomain uintptr
-	var pIUnknown uintptr
-	hr := runtimeHost.GetDefaultDomain(&pIUnknown)
-	err = checkOK(hr, "runtimeHost.GetDefaultDomain")
+	debugPrint("Entering into appdomain.GetAppDomain()...")
+	iu, err := runtimeHost.GetDefaultDomain()
 	if err != nil {
 		return
 	}
-	iu := NewIUnknownFromPtr(pIUnknown)
-	hr = iu.QueryInterface(&IID_AppDomain, &pAppDomain)
-	err = checkOK(hr, "IUnknown.QueryInterface")
-	return NewAppDomainFromPtr(pAppDomain), err
-}
-
-func NewAppDomainFromPtr(ppv uintptr) *AppDomain {
-	return (*AppDomain)(unsafe.Pointer(ppv))
+	err = iu.QueryInterface(IID_AppDomain, unsafe.Pointer(&appDomain))
+	return
 }
 
 func (obj *AppDomain) QueryInterface(riid *windows.GUID, ppvObject *uintptr) uintptr {
+	debugPrint("Entering into appdomain.QueryInterface()...")
 	ret, _, _ := syscall.Syscall(
 		obj.vtbl.QueryInterface,
 		3,
@@ -135,22 +137,76 @@ func (obj *AppDomain) Release() uintptr {
 	return ret
 }
 
-func (obj *AppDomain) GetHashCode() uintptr {
-	ret, _, _ := syscall.Syscall(
+// GetHashCode serves as the default hash function.
+// https://docs.microsoft.com/en-us/dotnet/api/system.object.gethashcode?view=netframework-4.8#System_Object_GetHashCode
+func (obj *AppDomain) GetHashCode() (int32, error) {
+	debugPrint("Entering into appdomain.GetHashCode()...")
+	ret, _, err := syscall.Syscall(
 		obj.vtbl.GetHashCode,
 		2,
 		uintptr(unsafe.Pointer(obj)),
 		0,
-		0)
-	return ret
+		0,
+	)
+	if err != syscall.Errno(0) {
+		return 0, fmt.Errorf("the appdomain.GetHashCode function returned an error:\r\n%s", err)
+	}
+	// Unable to avoid misuse of unsafe.Pointer because the Windows API call returns the safeArray pointer in the "ret" value. This is a go vet false positive
+	return int32(ret), nil
 }
 
-func (obj *AppDomain) Load_3(pRawAssembly uintptr, asmbly *uintptr) uintptr {
-	ret, _, _ := syscall.Syscall(
+// Load_3 Loads an Assembly into this application domain.
+// virtual HRESULT __stdcall Load_3 (
+// /*[in]*/ SAFEARRAY * rawAssembly,
+// /*[out,retval]*/ struct _Assembly * * pRetVal ) = 0;
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.load?view=net-5.0
+func (obj *AppDomain) Load_3(rawAssembly *SafeArray) (assembly *Assembly, err error) {
+	debugPrint("Entering into appdomain.Load_3()...")
+	hr, _, err := syscall.Syscall(
 		obj.vtbl.Load_3,
 		3,
 		uintptr(unsafe.Pointer(obj)),
-		uintptr(unsafe.Pointer(pRawAssembly)),
-		uintptr(unsafe.Pointer(asmbly)))
-	return ret
+		uintptr(unsafe.Pointer(rawAssembly)),
+		uintptr(unsafe.Pointer(&assembly)),
+	)
+
+	if err != syscall.Errno(0) {
+		if err != syscall.Errno(1150) {
+			return
+		}
+	}
+
+	if hr != S_OK {
+		err = fmt.Errorf("the appdomain.Load_3 function returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+
+	return
+}
+
+// ToString Obtains a string representation that includes the friendly name of the application domain and any context policies.
+// https://docs.microsoft.com/en-us/dotnet/api/system.appdomain.tostring?view=net-5.0#System_AppDomain_ToString
+func (obj *AppDomain) ToString() (domain string, err error) {
+	debugPrint("Entering into appdomain.ToString()...")
+	var pDomain *string
+	hr, _, err := syscall.Syscall(
+		obj.vtbl.get_ToString,
+		2,
+		uintptr(unsafe.Pointer(obj)),
+		uintptr(unsafe.Pointer(&pDomain)),
+		0,
+	)
+
+	if err != syscall.Errno(0) {
+		err = fmt.Errorf("the AppDomain.ToString method retured an error:\r\n%s", err)
+		return
+	}
+	if hr != S_OK {
+		err = fmt.Errorf("the AppDomain.ToString method returned a non-zero HRESULT: 0x%x", hr)
+		return
+	}
+	err = nil
+	domain = ReadUnicodeStr(unsafe.Pointer(pDomain))
+	return
 }

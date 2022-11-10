@@ -1,6 +1,7 @@
+//go:build windows
 // +build windows
 
-// go-clr is a PoC package that wraps Windows syscalls necessary to load and the CLR into the current process and
+// Package clr is a PoC package that wraps Windows syscalls necessary to load and the CLR into the current process and
 // execute a managed DLL from disk or a managed EXE from memory
 package clr
 
@@ -11,38 +12,37 @@ import (
 	"unsafe"
 )
 
-// GetInstallRuntimes is a wrapper function that returns an array of installed runtimes. Requires an existing ICLRMetaHost
+// GetInstalledRuntimes is a wrapper function that returns an array of installed runtimes. Requires an existing ICLRMetaHost
 func GetInstalledRuntimes(metahost *ICLRMetaHost) ([]string, error) {
 	var runtimes []string
-	var pInstalledRuntimes uintptr
-	hr := metahost.EnumerateInstalledRuntimes(&pInstalledRuntimes)
-	err := checkOK(hr, "EnumerateInstalledRuntimes")
+	enumICLRRuntimeInfo, err := metahost.EnumerateInstalledRuntimes()
 	if err != nil {
 		return runtimes, err
 	}
-	installedRuntimes := NewIEnumUnknownFromPtr(pInstalledRuntimes)
-	var pRuntimeInfo uintptr
-	var fetched = uint32(0)
-	var versionString string
-	versionStringBytes := make([]uint16, 20)
-	versionStringSize := uint32(len(versionStringBytes))
-	var runtimeInfo *ICLRRuntimeInfo
-	for {
-		hr = installedRuntimes.Next(1, &pRuntimeInfo, &fetched)
-		if hr != S_OK {
+
+	var hr int
+	for hr != S_FALSE {
+		var runtimeInfo *ICLRRuntimeInfo
+		var fetched = uint32(0)
+		hr, err = enumICLRRuntimeInfo.Next(1, unsafe.Pointer(&runtimeInfo), &fetched)
+		if err != nil {
+			return runtimes, fmt.Errorf("InstalledRuntimes Next Error:\r\n%s\n", err)
+		}
+		if hr == S_FALSE {
 			break
 		}
-		runtimeInfo = NewICLRRuntimeInfoFromPtr(pRuntimeInfo)
-		if ret := runtimeInfo.GetVersionString(&versionStringBytes[0], &versionStringSize); ret != S_OK {
-			return runtimes, fmt.Errorf("GetVersionString returned 0x%08x", ret)
+		// Only release if an interface pointer was returned
+		runtimeInfo.Release()
+
+		version, err := runtimeInfo.GetVersionString()
+		if err != nil {
+			return runtimes, err
 		}
-		versionString = syscall.UTF16ToString(versionStringBytes)
-		runtimes = append(runtimes, versionString)
+		runtimes = append(runtimes, version)
 	}
 	if len(runtimes) == 0 {
 		return runtimes, fmt.Errorf("Could not find any installed runtimes")
 	}
-	runtimeInfo.Release()
 	return runtimes, err
 }
 
@@ -54,7 +54,7 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 	if targetRuntime == "" {
 		targetRuntime = "v4"
 	}
-	metahost, err := GetICLRMetaHost()
+	metahost, err := CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
 	if err != nil {
 		return
 	}
@@ -76,9 +76,8 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 	if err != nil {
 		return
 	}
-	var isLoadable bool
-	hr := runtimeInfo.IsLoadable(&isLoadable)
-	err = checkOK(hr, "runtimeInfo.IsLoadable")
+
+	isLoadable, err := runtimeInfo.IsLoadable()
 	if err != nil {
 		return
 	}
@@ -90,21 +89,35 @@ func ExecuteDLLFromDisk(targetRuntime, dllpath, typeName, methodName, argument s
 		return
 	}
 
-	pDLLPath, _ := syscall.UTF16PtrFromString(dllpath)
-	pTypeName, _ := syscall.UTF16PtrFromString(typeName)
-	pMethodName, _ := syscall.UTF16PtrFromString(methodName)
-	pArgument, _ := syscall.UTF16PtrFromString(argument)
-	var pReturnVal uint16
-	hr = runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument, &pReturnVal)
-	err = checkOK(hr, "runtimeHost.ExecuteInDefaultAppDomain")
+	pDLLPath, err := syscall.UTF16PtrFromString(dllpath)
 	if err != nil {
-		return int16(pReturnVal), err
+		return
 	}
+	pTypeName, err := syscall.UTF16PtrFromString(typeName)
+	if err != nil {
+		return
+	}
+	pMethodName, err := syscall.UTF16PtrFromString(methodName)
+	if err != nil {
+		return
+	}
+	pArgument, err := syscall.UTF16PtrFromString(argument)
+	if err != nil {
+		return
+	}
+
+	ret, err := runtimeHost.ExecuteInDefaultAppDomain(pDLLPath, pTypeName, pMethodName, pArgument)
+	if err != nil {
+		return
+	}
+	if *ret != 0 {
+		return int16(*ret), fmt.Errorf("the ICLRRuntimeHost::ExecuteInDefaultAppDomain method returned a non-zero return value: %d", *ret)
+	}
+
 	runtimeHost.Release()
 	runtimeInfo.Release()
 	metahost.Release()
-	return int16(pReturnVal), nil
-
+	return 0, nil
 }
 
 // ExecuteByteArray is a wrapper function that will automatically loads the supplied target framework into the current
@@ -116,7 +129,7 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if targetRuntime == "" {
 		targetRuntime = "v4"
 	}
-	metahost, err := GetICLRMetaHost()
+	metahost, err := CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
 	if err != nil {
 		return
 	}
@@ -138,9 +151,8 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if err != nil {
 		return
 	}
-	var isLoadable bool
-	hr := runtimeInfo.IsLoadable(&isLoadable)
-	err = checkOK(hr, "runtimeInfo.IsLoadable")
+
+	isLoadable, err := runtimeInfo.IsLoadable()
 	if err != nil {
 		return
 	}
@@ -159,44 +171,34 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	if err != nil {
 		return
 	}
-	var pAssembly uintptr
-	hr = appDomain.Load_3(uintptr(safeArrayPtr), &pAssembly)
-	err = checkOK(hr, "appDomain.Load_3")
-	if err != nil {
-		return
-	}
-	assembly := NewAssemblyFromPtr(pAssembly)
-	var pEntryPointInfo uintptr
-	hr = assembly.GetEntryPoint(&pEntryPointInfo)
-	err = checkOK(hr, "assembly.GetEntryPoint")
-	if err != nil {
-		return
-	}
-	methodInfo := NewMethodInfoFromPtr(pEntryPointInfo)
 
-	var methodSignaturePtr, paramPtr uintptr
-	err = methodInfo.GetString(&methodSignaturePtr)
+	assembly, err := appDomain.Load_3(safeArrayPtr)
 	if err != nil {
 		return
 	}
-	methodSignature := readUnicodeStr(unsafe.Pointer(methodSignaturePtr))
+
+	methodInfo, err := assembly.GetEntryPoint()
+	if err != nil {
+		return
+	}
+
+	var paramSafeArray *SafeArray
+	methodSignature, err := methodInfo.GetString()
+	if err != nil {
+		return
+	}
 
 	if expectsParams(methodSignature) {
-		if paramPtr, err = PrepareParameters(params); err != nil {
+		if paramSafeArray, err = PrepareParameters(params); err != nil {
 			return
 		}
 	}
 
-	var pRetCode uintptr
 	nullVariant := Variant{
 		VT:  1,
 		Val: uintptr(0),
 	}
-	hr = methodInfo.Invoke_3(
-		nullVariant,
-		paramPtr,
-		&pRetCode)
-	err = checkOK(hr, "methodInfo.Invoke_3")
+	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
 	if err != nil {
 		return
 	}
@@ -204,34 +206,173 @@ func ExecuteByteArray(targetRuntime string, rawBytes []byte, params []string) (r
 	runtimeHost.Release()
 	runtimeInfo.Release()
 	metahost.Release()
-	return int32(pRetCode), nil
-
+	return 0, nil
 }
 
-// PrepareParameters creates a safe array of strings (arguments) nested inside a Variant object, which is itself
-// appended to the final safe array
-func PrepareParameters(params []string) (uintptr, error) {
-	listStrSafeArrayPtr, err := CreateEmptySafeArray(0x0008, len(params)) // VT_BSTR
-	if err != nil {
-		return 0, err
-	}
-	for i, p := range params {
-		bstr, _ := SysAllocString(p)
-		SafeArrayPutElement(listStrSafeArrayPtr, bstr, i)
+// LoadCLR loads the target runtime into the current process and returns the runtimehost
+// The intended purpose is for the runtimehost to be reused for subsequent operations
+// throughout the duration of the program. Commonly used with C2 frameworks
+func LoadCLR(targetRuntime string) (runtimeHost *ICORRuntimeHost, err error) {
+	if targetRuntime == "" {
+		targetRuntime = "v4"
 	}
 
-	paramVariant := Variant{
-		VT:  0x0008 | 0x2000, // VT_BSTR | VT_ARRAY
-		Val: uintptr(listStrSafeArrayPtr),
+	metahost, err := CLRCreateInstance(CLSID_CLRMetaHost, IID_ICLRMetaHost)
+	if err != nil {
+		return runtimeHost, fmt.Errorf("there was an error enumerating the installed CLR runtimes:\n%s", err)
 	}
 
-	paramsSafeArrayPtr, err := CreateEmptySafeArray(0x000C, 1) // VT_VARIANT
+	runtimes, err := GetInstalledRuntimes(metahost)
+	debugPrint(fmt.Sprintf("Installed Runtimes: %v", runtimes))
 	if err != nil {
-		return 0, err
+		return
 	}
-	err = SafeArrayPutElement(paramsSafeArrayPtr, unsafe.Pointer(&paramVariant), 0)
+	var latestRuntime string
+	for _, r := range runtimes {
+		if strings.Contains(r, targetRuntime) {
+			latestRuntime = r
+			break
+		} else {
+			latestRuntime = r
+		}
+	}
+	runtimeInfo, err := GetRuntimeInfo(metahost, latestRuntime)
 	if err != nil {
-		return 0, err
+		return
 	}
-	return uintptr(paramsSafeArrayPtr), nil
+
+	isLoadable, err := runtimeInfo.IsLoadable()
+	if err != nil {
+		return
+	}
+	if !isLoadable {
+		err = fmt.Errorf("%s is not loadable for some reason", latestRuntime)
+	}
+
+	return GetICORRuntimeHost(runtimeInfo)
+}
+
+// ExecuteByteArrayDefaultDomain uses a previously instantiated runtimehost, gets the default AppDomain,
+// loads the assembly into, executes the assembly, and then releases AppDomain
+// Intended to be used by C2 frameworks to quickly execute an assembly one time
+func ExecuteByteArrayDefaultDomain(runtimeHost *ICORRuntimeHost, rawBytes []byte, params []string) (stdout string, stderr string) {
+	appDomain, err := GetAppDomain(runtimeHost)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+	safeArrayPtr, err := CreateSafeArray(rawBytes)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	assembly, err := appDomain.Load_3(safeArrayPtr)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	methodInfo, err := assembly.GetEntryPoint()
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	var paramSafeArray *SafeArray
+	methodSignature, err := methodInfo.GetString()
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	if expectsParams(methodSignature) {
+		if paramSafeArray, err = PrepareParameters(params); err != nil {
+			stderr = err.Error()
+			return
+		}
+	}
+
+	nullVariant := Variant{
+		VT:  1,
+		Val: uintptr(0),
+	}
+
+	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	assembly.Release()
+	appDomain.Release()
+	return
+}
+
+// LoadAssembly uses a previously instantiated runtimehost and loads an assembly into the default AppDomain
+// and returns the assembly's methodInfo structure. The intended purpose is for the assembly to be loaded
+// once but executed many times throughout the duration of the program. Commonly used with C2 frameworks
+func LoadAssembly(runtimeHost *ICORRuntimeHost, rawBytes []byte) (methodInfo *MethodInfo, err error) {
+	appDomain, err := GetAppDomain(runtimeHost)
+	if err != nil {
+		return
+	}
+	safeArrayPtr, err := CreateSafeArray(rawBytes)
+	if err != nil {
+		return
+	}
+
+	assembly, err := appDomain.Load_3(safeArrayPtr)
+	if err != nil {
+		return
+	}
+	return assembly.GetEntryPoint()
+}
+
+// InvokeAssembly uses the MethodInfo structure of a previously loaded assembly and executes it.
+// The intended purpose is for the assembly to be executed many times throughout the duration of the
+// program. Commonly used with C2 frameworks
+func InvokeAssembly(methodInfo *MethodInfo, params []string) (stdout string, stderr string) {
+	var paramSafeArray *SafeArray
+	methodSignature, err := methodInfo.GetString()
+	if err != nil {
+		stderr = err.Error()
+		return
+	}
+
+	if expectsParams(methodSignature) {
+		if paramSafeArray, err = PrepareParameters(params); err != nil {
+			stderr = err.Error()
+			return
+		}
+	}
+
+	nullVariant := Variant{
+		VT:  1,
+		Val: uintptr(0),
+	}
+
+	defer SafeArrayDestroy(paramSafeArray)
+
+	// Ensure exclusive access to read/write STDOUT/STDERR
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	err = methodInfo.Invoke_3(nullVariant, paramSafeArray)
+	if err != nil {
+		stderr = err.Error()
+		// Don't return because there could be data on STDOUT/STDERR
+	}
+
+	// Read data from previously redirected STDOUT/STDERR
+	if wSTDOUT != nil {
+		var e string
+		stdout, e, err = ReadStdoutStderr()
+		stderr += e
+		if err != nil {
+			stderr += err.Error()
+		}
+	}
+
+	return
 }
